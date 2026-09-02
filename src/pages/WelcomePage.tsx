@@ -37,6 +37,18 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
 }) => {
   const { user, isAuthenticated, completedLessonIds, frameworks, openAiModal } = useAuthAndData();
 
+  // Helper to ensure user is directed to signup / login if not authenticated
+  const handleProtectedAction = (authenticatedTab: string, frameworkId?: string) => {
+    if (frameworkId && setSelectedFrameworkId) {
+      setSelectedFrameworkId(frameworkId);
+    }
+    if (!isAuthenticated) {
+      setCurrentTab('signup');
+    } else {
+      setCurrentTab(authenticatedTab);
+    }
+  };
+
   // Role path recommendation state
   const [selectedRolePath, setSelectedRolePath] = useState<'auditor' | 'devsecops' | 'privacy' | 'beginner'>('auditor');
   
@@ -290,7 +302,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
 
             <button
               id="welcome-mock-exams-btn"
-              onClick={() => setCurrentTab('exams')}
+              onClick={() => handleProtectedAction('exams')}
               className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 px-5 py-3 text-sm font-semibold text-text-primary transition-all"
             >
               <CheckSquare className="h-4 w-4 text-accent-cyan" />
@@ -299,7 +311,13 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
 
             <button
               id="welcome-open-ai-btn"
-              onClick={() => openAiModal()}
+              onClick={() => {
+                if (!isAuthenticated) {
+                  setCurrentTab('signup');
+                } else {
+                  openAiModal();
+                }
+              }}
               className="inline-flex items-center gap-2 rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 px-4 py-3 text-sm font-semibold text-primary-light transition-all"
             >
               <Sparkles className="h-4 w-4" />
@@ -422,10 +440,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
                   return (
                     <div
                       key={fwId}
-                      onClick={() => {
-                        if (setSelectedFrameworkId) setSelectedFrameworkId(fwId);
-                        setCurrentTab('framework-details');
-                      }}
+                      onClick={() => handleProtectedAction('framework-details', fwId)}
                       className="flex items-center justify-between p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-primary/50 cursor-pointer transition-all group"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
@@ -445,7 +460,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
 
               <button
                 id="welcome-launch-role-path-btn"
-                onClick={() => setCurrentTab(activePathData.suggestedNextTab)}
+                onClick={() => handleProtectedAction(activePathData.suggestedNextTab)}
                 className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-white hover:bg-white/90 text-black px-4 py-2.5 text-xs font-bold shadow-md transition-all"
               >
                 <span>Launch {activePathData.badge}</span>
@@ -469,7 +484,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
             </h2>
           </div>
           <button
-            onClick={() => setCurrentTab('library')}
+            onClick={() => handleProtectedAction('library')}
             className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold text-primary-light hover:underline"
           >
             <span>View Full Catalog</span>
@@ -485,7 +500,8 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
             return (
               <div
                 key={fw.id}
-                className="group relative rounded-2xl border border-white/10 bg-surface p-5 hover:border-primary/50 hover:bg-surface-hover transition-all flex flex-col justify-between"
+                onClick={() => handleProtectedAction('framework-details', fw.id)}
+                className="group relative rounded-2xl border border-white/10 bg-surface p-5 hover:border-primary/50 hover:bg-surface-hover cursor-pointer transition-all flex flex-col justify-between"
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2">
@@ -527,9 +543,9 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
                   </span>
                   <button
                     id={`welcome-explore-${fw.id}-btn`}
-                    onClick={() => {
-                      if (setSelectedFrameworkId) setSelectedFrameworkId(fw.id);
-                      setCurrentTab('framework-details');
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleProtectedAction('framework-details', fw.id);
                     }}
                     className="inline-flex items-center gap-1 font-bold text-primary-light hover:underline"
                   >
@@ -650,7 +666,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
             ) : (
               <button
                 id="diagnostic-full-exams-btn"
-                onClick={() => setCurrentTab('exams')}
+                onClick={() => handleProtectedAction('exams')}
                 className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black px-4 py-2 text-xs font-bold transition-all shadow-md"
               >
                 <span>Take Full Proctored Mock Exam</span>
@@ -677,7 +693,13 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div
-            onClick={() => openAiModal()}
+            onClick={() => {
+              if (!isAuthenticated) {
+                setCurrentTab('signup');
+              } else {
+                openAiModal();
+              }
+            }}
             className="rounded-2xl border border-white/10 bg-surface p-5 hover:border-primary/50 hover:bg-surface-hover cursor-pointer transition-all space-y-3 group"
           >
             <div className="h-10 w-10 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center text-primary-light group-hover:scale-105 transition-transform">
@@ -692,7 +714,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
           </div>
 
           <div
-            onClick={() => setCurrentTab('exams')}
+            onClick={() => handleProtectedAction('exams')}
             className="rounded-2xl border border-white/10 bg-surface p-5 hover:border-accent-cyan/50 hover:bg-surface-hover cursor-pointer transition-all space-y-3 group"
           >
             <div className="h-10 w-10 rounded-xl bg-accent-cyan/20 border border-accent-cyan/30 flex items-center justify-center text-accent-cyan group-hover:scale-105 transition-transform">
@@ -707,7 +729,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
           </div>
 
           <div
-            onClick={() => setCurrentTab('gap-analysis')}
+            onClick={() => handleProtectedAction('gap-analysis')}
             className="rounded-2xl border border-white/10 bg-surface p-5 hover:border-amber-500/50 hover:bg-surface-hover cursor-pointer transition-all space-y-3 group"
           >
             <div className="h-10 w-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:scale-105 transition-transform">
@@ -722,7 +744,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
           </div>
 
           <div
-            onClick={() => setCurrentTab('matrix')}
+            onClick={() => handleProtectedAction('matrix')}
             className="rounded-2xl border border-white/10 bg-surface p-5 hover:border-purple-500/50 hover:bg-surface-hover cursor-pointer transition-all space-y-3 group"
           >
             <div className="h-10 w-10 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 group-hover:scale-105 transition-transform">
