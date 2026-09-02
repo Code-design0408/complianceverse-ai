@@ -52,6 +52,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false);
 
   const navItems = [
+    { id: 'welcome', label: 'Welcome Guide', icon: Sparkles, desc: 'Tour & career roadmaps' },
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3, desc: 'Overview & progress' },
     { id: 'library', label: 'Frameworks', icon: BookOpen, desc: '6 Core GRC Standards' },
     { id: 'exams', label: 'Exams & Certs', icon: CheckSquare, badge: activeExamSession ? 'Active' : undefined, desc: 'Simulated practice & testing' },

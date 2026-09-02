@@ -31,11 +31,13 @@ import { SUPABASE_SQL_SCHEMA } from '../services/supabase';
 interface AuthPageProps {
   onSuccess?: () => void;
   defaultTab?: 'login' | 'signup' | 'demo';
+  onExploreLanding?: () => void;
 }
 
 export const AuthPage: React.FC<AuthPageProps> = ({
   onSuccess,
-  defaultTab = 'signup'
+  defaultTab = 'signup',
+  onExploreLanding
 }) => {
   const {
     signup,
@@ -658,6 +660,22 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           )}
 
         </div>
+
+        {/* Explore Public Overview / Landing Option */}
+        {onExploreLanding && (
+          <div className="text-center pt-1">
+            <button
+              type="button"
+              id="auth-explore-landing-btn"
+              onClick={onExploreLanding}
+              className="inline-flex items-center gap-2 text-xs font-semibold text-text-secondary hover:text-primary-light transition-all hover:underline"
+            >
+              <BookOpen className="h-3.5 w-3.5 text-primary-light" />
+              <span>Want to learn more first? View Public Platform Overview</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Supabase Schema Helper Modal */}
         {showSchemaModal && (

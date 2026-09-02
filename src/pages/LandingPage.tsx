@@ -111,17 +111,26 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab }) => {
                 className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-xs font-bold text-white hover:bg-primary-dark transition-all shadow-xl shadow-primary/30 border border-white/20"
               >
                 <Sparkles className="h-4 w-4 text-white animate-pulse" />
-                <span>Create New Account (Start with 0 Progress)</span>
+                <span>Create New Account (Start Fresh)</span>
                 <ArrowRight className="h-4 w-4" />
+              </button>
+
+              <button
+                id="hero-welcome-guide-btn"
+                onClick={() => setCurrentTab('welcome')}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-2xl border border-primary/40 bg-primary/10 hover:bg-primary/20 px-6 py-3.5 text-xs font-bold text-primary-light transition-all backdrop-blur-md"
+              >
+                <BookOpen className="h-4 w-4" />
+                <span>View Academy Welcome Tour</span>
               </button>
 
               <button
                 id="hero-signin-btn"
                 onClick={() => setCurrentTab('auth')}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.05] hover:bg-white/10 px-6 py-3.5 text-xs font-bold text-text-primary transition-all backdrop-blur-md"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.05] hover:bg-white/10 px-5 py-3.5 text-xs font-bold text-text-primary transition-all backdrop-blur-md"
               >
                 <Lock className="h-4 w-4 text-primary-light" />
-                <span>Existing Auditor Sign In</span>
+                <span>Sign In</span>
               </button>
             </div>
 

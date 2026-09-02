@@ -140,7 +140,7 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
   // Load State from LocalStorage
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.AUTH_STATE);
-    return saved !== null ? JSON.parse(saved) : true;
+    return saved !== null ? JSON.parse(saved) : false;
   });
 
   const [user, setUser] = useState<UserProfile>(() => {

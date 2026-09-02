@@ -13,6 +13,7 @@ import { BadgeUnlockedModal } from './components/modals/BadgeUnlockedModal';
 
 // Pages
 import { LandingPage } from './pages/LandingPage';
+import { WelcomePage } from './pages/WelcomePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { LearningLibraryPage } from './pages/LearningLibraryPage';
 import { FrameworkDetailsPage } from './pages/FrameworkDetailsPage';
@@ -29,18 +30,47 @@ import { AuthPage } from './pages/AuthPage';
 import { ExamResult } from './types';
 
 const MainAppContent: React.FC = () => {
-  const { frameworks } = useAuthAndData();
-  const [currentTab, setCurrentTab] = useState<string>('landing');
+  const { frameworks, isAuthenticated } = useAuthAndData();
+  const [currentTab, setCurrentTab] = useState<string>(() => {
+    const saved = localStorage.getItem('complianceverse_auth_state_v2');
+    const isAuth = saved !== null ? JSON.parse(saved) : false;
+    return isAuth ? 'dashboard' : 'welcome';
+  });
   const [selectedFrameworkId, setSelectedFrameworkId] = useState<string>(frameworks[0]?.id || 'soc2');
   const [selectedLessonId, setSelectedLessonId] = useState<string>(frameworks[0]?.lessons[0]?.id || 'soc2-1');
   const [examResultForReview, setExamResultForReview] = useState<ExamResult | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
 
+  // If user logs out, redirect to welcome page
+  React.useEffect(() => {
+    if (!isAuthenticated && currentTab !== 'landing' && currentTab !== 'welcome' && currentTab !== 'signup' && currentTab !== 'login') {
+      setCurrentTab('welcome');
+    }
+  }, [isAuthenticated, currentTab]);
+
   const renderActiveView = () => {
+    // If not authenticated and not explicitly viewing public landing or welcome page, show Auth / Sign Up
+    if (!isAuthenticated && currentTab !== 'landing' && currentTab !== 'welcome' && currentTab !== 'login' && currentTab !== 'signup') {
+      return (
+        <AuthPage
+          onSuccess={() => setCurrentTab('dashboard')}
+          onExploreLanding={() => setCurrentTab('welcome')}
+          defaultTab="signup"
+        />
+      );
+    }
+
     switch (currentTab) {
       case 'landing':
         return <LandingPage setCurrentTab={setCurrentTab} />;
+      case 'welcome':
+        return (
+          <WelcomePage
+            setCurrentTab={setCurrentTab}
+            setSelectedFrameworkId={setSelectedFrameworkId}
+          />
+        );
       case 'dashboard':
         return (
           <DashboardPage
@@ -107,47 +137,74 @@ const MainAppContent: React.FC = () => {
         return <SettingsPage />;
       case 'auth':
       case 'login':
-        return <AuthPage onSuccess={() => setCurrentTab('dashboard')} defaultTab="login" />;
+        return (
+          <AuthPage
+            onSuccess={() => setCurrentTab('dashboard')}
+            onExploreLanding={() => setCurrentTab('welcome')}
+            defaultTab="login"
+          />
+        );
       case 'signup':
-        return <AuthPage onSuccess={() => setCurrentTab('dashboard')} defaultTab="signup" />;
+        return (
+          <AuthPage
+            onSuccess={() => setCurrentTab('dashboard')}
+            onExploreLanding={() => setCurrentTab('welcome')}
+            defaultTab="signup"
+          />
+        );
       default:
-        return <DashboardPage setCurrentTab={setCurrentTab} setSelectedFrameworkId={setSelectedFrameworkId} setSelectedLessonId={setSelectedLessonId} />;
+        return (
+          <DashboardPage
+            setCurrentTab={setCurrentTab}
+            setSelectedFrameworkId={setSelectedFrameworkId}
+            setSelectedLessonId={setSelectedLessonId}
+          />
+        );
     }
   };
 
   const isExamActive = currentTab === 'active-exam';
+  const isAuthView = !isAuthenticated && currentTab !== 'landing' && currentTab !== 'welcome';
 
   return (
     <div className="min-h-screen bg-background text-text-primary selection:bg-primary/30 selection:text-white flex flex-col">
-      {/* Permanent Desktop & Overlay Mobile Sidebar */}
-      <Sidebar
-        currentTab={currentTab}
-        setCurrentTab={setCurrentTab}
-        isCollapsed={isSidebarCollapsed}
-        setIsCollapsed={setIsSidebarCollapsed}
-        isMobileOpen={isMobileSidebarOpen}
-        setIsMobileOpen={setIsMobileSidebarOpen}
-      />
+      {/* Sidebar is hidden during pure unauthenticated Auth screen to provide a focused onboarding flow */}
+      {!isAuthView && (
+        <Sidebar
+          currentTab={currentTab}
+          setCurrentTab={setCurrentTab}
+          isCollapsed={isSidebarCollapsed}
+          setIsCollapsed={setIsSidebarCollapsed}
+          isMobileOpen={isMobileSidebarOpen}
+          setIsMobileOpen={setIsMobileSidebarOpen}
+        />
+      )}
 
-      {/* Main Content Area (offset by sidebar width on desktop) */}
+      {/* Main Content Area */}
       <div
         className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${
-          isSidebarCollapsed ? 'lg:pl-[76px]' : 'lg:pl-64'
+          isAuthView
+            ? 'pl-0'
+            : isSidebarCollapsed
+            ? 'lg:pl-[76px]'
+            : 'lg:pl-64'
         }`}
       >
         {/* Mobile Header with Hamburger Toggle */}
-        <MobileHeader
-          currentTab={currentTab}
-          onOpenMobileMenu={() => setIsMobileSidebarOpen(true)}
-        />
+        {!isAuthView && (
+          <MobileHeader
+            currentTab={currentTab}
+            onOpenMobileMenu={() => setIsMobileSidebarOpen(true)}
+          />
+        )}
 
         {/* Main Page Content Body */}
         <main className="flex-1 w-full">
           {renderActiveView()}
         </main>
 
-        {/* Footer (hidden during active exam to avoid distraction) */}
-        {!isExamActive && <Footer setCurrentTab={setCurrentTab} />}
+        {/* Footer (hidden during active exam and pure auth view to avoid clutter) */}
+        {!isExamActive && !isAuthView && <Footer setCurrentTab={setCurrentTab} />}
       </div>
 
       {/* Global Modals */}
