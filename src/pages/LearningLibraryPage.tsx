@@ -146,101 +146,122 @@ export const LearningLibraryPage: React.FC<LearningLibraryPageProps> = ({
           </div>
 
           {/* Framework Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredFrameworks.map((f) => {
-              const totalLessons = f.lessons.length;
-              const completedCount = f.lessons.filter(l => completedLessonIds.includes(l.id)).length;
-              const pct = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
-              const isAllDone = pct === 100 && totalLessons > 0;
-              const videoCount = (f.suggestedVideos || SUGGESTED_FRAMEWORK_VIDEOS[f.id] || []).length;
+          {filteredFrameworks.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredFrameworks.map((f) => {
+                const totalLessons = f.lessons.length;
+                const completedCount = f.lessons.filter(l => completedLessonIds.includes(l.id)).length;
+                const pct = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
+                const isAllDone = pct === 100 && totalLessons > 0;
+                const videoCount = (f.suggestedVideos || SUGGESTED_FRAMEWORK_VIDEOS[f.id] || []).length;
 
-              return (
-                <div
-                  key={f.id}
-                  className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 flex flex-col justify-between hover:border-primary-light/40 hover:bg-white/[0.07] hover:shadow-2xl hover:shadow-primary/10 transition-all group backdrop-blur-xl"
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="rounded-full bg-primary/20 border border-primary/30 px-3 py-1 text-xs font-bold text-primary-light uppercase tracking-wider backdrop-blur-sm">
-                        {f.code}
-                      </span>
-                      <span className="text-[11px] font-mono text-text-muted">
-                        {f.version}
-                      </span>
-                    </div>
-
-                    <div>
-                      <h3 className="font-heading text-lg font-bold text-text-primary group-hover:text-primary-light transition-colors">
-                        {f.title}
-                      </h3>
-                      <p className="text-xs text-text-secondary mt-1.5 line-clamp-3 leading-relaxed">
-                        {f.description}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 pt-1 text-[11px] text-text-muted">
-                      <span className="rounded-lg bg-white/5 px-2.5 py-0.5 border border-white/10 backdrop-blur-sm">
-                        {f.modules.length} Modules
-                      </span>
-                      <span className="rounded-lg bg-white/5 px-2.5 py-0.5 border border-white/10 backdrop-blur-sm">
-                        {f.totalControls} Controls
-                      </span>
-                      <span className="rounded-lg bg-rose-500/10 px-2.5 py-0.5 border border-rose-500/20 text-rose-300 font-semibold flex items-center gap-1 backdrop-blur-sm">
-                        <Youtube className="h-3 w-3" />
-                        {videoCount} Video Guides
-                      </span>
-                      <span className="rounded-lg bg-white/5 px-2.5 py-0.5 border border-white/10 text-primary-light font-mono font-semibold backdrop-blur-sm">
-                        +{f.xpReward} XP
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Progress & Actions */}
-                  <div className="mt-6 pt-4 border-t border-white/10 space-y-3">
-                    <div>
-                      <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="text-text-muted">Mastery Progress</span>
-                        <span className="font-mono font-bold text-text-primary">{pct}%</span>
+                return (
+                  <div
+                    key={f.id}
+                    className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 flex flex-col justify-between hover:border-primary-light/40 hover:bg-white/[0.07] hover:shadow-2xl hover:shadow-primary/10 transition-all group backdrop-blur-xl"
+                  >
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="rounded-full bg-primary/20 border border-primary/30 px-3 py-1 text-xs font-bold text-primary-light uppercase tracking-wider backdrop-blur-sm">
+                          {f.code}
+                        </span>
+                        <span className="text-[11px] font-mono text-text-muted">
+                          {f.version}
+                        </span>
                       </div>
-                      <div className="h-2 w-full bg-black/40 border border-white/5 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            isAllDone ? 'bg-emerald-500' : 'bg-primary'
-                          }`}
-                          style={{ width: `${pct}%` }}
-                        />
+
+                      <div>
+                        <h3 className="font-heading text-lg font-bold text-text-primary group-hover:text-primary-light transition-colors">
+                          {f.title}
+                        </h3>
+                        <p className="text-xs text-text-secondary mt-1.5 line-clamp-3 leading-relaxed">
+                          {f.description}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 pt-1 text-[11px] text-text-muted">
+                        <span className="rounded-lg bg-white/5 px-2.5 py-0.5 border border-white/10 backdrop-blur-sm">
+                          {f.modules.length} Modules
+                        </span>
+                        <span className="rounded-lg bg-white/5 px-2.5 py-0.5 border border-white/10 backdrop-blur-sm">
+                          {f.totalControls} Controls
+                        </span>
+                        <span className="rounded-lg bg-rose-500/10 px-2.5 py-0.5 border border-rose-500/20 text-rose-300 font-semibold flex items-center gap-1 backdrop-blur-sm">
+                          <Youtube className="h-3 w-3" />
+                          {videoCount} Video Guides
+                        </span>
+                        <span className="rounded-lg bg-white/5 px-2.5 py-0.5 border border-white/10 text-primary-light font-mono font-semibold backdrop-blur-sm">
+                          +{f.xpReward} XP
+                        </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 pt-1">
-                      <button
-                        onClick={() => {
-                          setSelectedFrameworkId(f.id);
-                          setCurrentTab('framework-details');
-                        }}
-                        className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-primary py-2.5 text-xs font-bold text-white hover:bg-primary-dark transition-all shadow-md shadow-primary/20 border border-white/15"
-                      >
-                        <span>Study Framework</span>
-                        <ArrowRight className="h-3.5 w-3.5" />
-                      </button>
+                    {/* Progress & Actions */}
+                    <div className="mt-6 pt-4 border-t border-white/10 space-y-3">
+                      <div>
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="text-text-muted">Mastery Progress</span>
+                          <span className="font-mono font-bold text-text-primary">{pct}%</span>
+                        </div>
+                        <div className="h-2 w-full bg-black/40 border border-white/5 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${
+                              isAllDone ? 'bg-emerald-500' : 'bg-primary'
+                            }`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
 
-                      <button
-                        onClick={() => {
-                          startExam('quick', f.id);
-                          setCurrentTab('active-exam');
-                        }}
-                        className="px-3 py-2.5 rounded-xl border border-white/10 bg-white/5 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-white/10 hover:border-white/20 transition-all flex items-center gap-1 backdrop-blur-sm"
-                        title="Quick 10-Q Mock Audit"
-                      >
-                        <Play className="h-3.5 w-3.5 text-primary-light" />
-                        <span>Exam</span>
-                      </button>
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          onClick={() => {
+                            setSelectedFrameworkId(f.id);
+                            setCurrentTab('framework-details');
+                          }}
+                          className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-primary py-2.5 text-xs font-bold text-white hover:bg-primary-dark transition-all shadow-md shadow-primary/20 border border-white/15"
+                        >
+                          <span>Study Framework</span>
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            startExam('quick', f.id);
+                            setCurrentTab('active-exam');
+                          }}
+                          className="px-3 py-2.5 rounded-xl border border-white/10 bg-white/5 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-white/10 hover:border-white/20 transition-all flex items-center gap-1 backdrop-blur-sm"
+                          title="Quick 10-Q Mock Audit"
+                        >
+                          <Play className="h-3.5 w-3.5 text-primary-light" />
+                          <span>Exam</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-12 text-center backdrop-blur-xl">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-text-muted mx-auto mb-3">
+                <Search className="h-6 w-6" />
+              </div>
+              <h3 className="text-base font-bold text-text-primary">No Matching Frameworks Found</h3>
+              <p className="text-xs text-text-muted mt-1 max-w-sm mx-auto">
+                No compliance standards matched your search query "{searchQuery}". Try clearing filters or searching for terms like "Access Control", "SOC 2", or "NIST".
+              </p>
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedCategory('All');
+                }}
+                className="mt-4 rounded-xl bg-white/10 px-4 py-2 text-xs font-bold text-text-primary hover:bg-white/20 transition-all border border-white/15"
+              >
+                Reset Search Filters
+              </button>
+            </div>
+          )}
 
         </div>
       )}
@@ -391,74 +412,95 @@ export const LearningLibraryPage: React.FC<LearningLibraryPageProps> = ({
           </div>
 
           {/* Videos Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredVideos.map((vid) => {
-              const matchedFw = frameworks.find(f => f.id === vid.frameworkId);
-              return (
-                <div
-                  key={vid.id}
-                  className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 flex flex-col justify-between hover:border-rose-500/40 hover:bg-white/[0.07] hover:shadow-2xl hover:shadow-rose-500/10 transition-all backdrop-blur-xl group"
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-1.5 text-xs font-bold text-rose-400 bg-rose-500/15 border border-rose-500/25 px-2.5 py-0.5 rounded-full">
-                        <Youtube className="h-3 w-3" />
-                        <span>{vid.duration}</span>
-                      </span>
+          {filteredVideos.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredVideos.map((vid) => {
+                const matchedFw = frameworks.find(f => f.id === vid.frameworkId);
+                return (
+                  <div
+                    key={vid.id}
+                    className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 flex flex-col justify-between hover:border-rose-500/40 hover:bg-white/[0.07] hover:shadow-2xl hover:shadow-rose-500/10 transition-all backdrop-blur-xl group"
+                  >
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-xs font-bold text-rose-400 bg-rose-500/15 border border-rose-500/25 px-2.5 py-0.5 rounded-full">
+                          <Youtube className="h-3 w-3" />
+                          <span>{vid.duration}</span>
+                        </span>
 
-                      <span className="rounded-full bg-white/5 border border-white/10 px-2.5 py-0.5 text-[10px] font-semibold text-text-muted">
-                        {vid.difficulty}
-                      </span>
+                        <span className="rounded-full bg-white/5 border border-white/10 px-2.5 py-0.5 text-[10px] font-semibold text-text-muted">
+                          {vid.difficulty}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-primary-light block mb-1">
+                          {matchedFw?.code || vid.frameworkId.toUpperCase()} Compliance
+                        </span>
+                        <h4 className="font-heading text-base font-bold text-text-primary group-hover:text-rose-300 transition-colors leading-snug">
+                          {vid.title}
+                        </h4>
+                        <p className="text-xs text-text-secondary mt-1.5 line-clamp-3 leading-relaxed">
+                          {vid.description}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-primary/20 bg-primary/10 p-3 text-xs flex items-start gap-2">
+                        <Lightbulb className="h-4 w-4 text-primary-light shrink-0 mt-0.5" />
+                        <p className="text-[11px] text-text-secondary line-clamp-2">
+                          <strong className="text-primary-light">Auditor Tip: </strong>
+                          {vid.auditorTakeaway}
+                        </p>
+                      </div>
                     </div>
 
-                    <div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-primary-light block mb-1">
-                        {matchedFw?.code || vid.frameworkId.toUpperCase()} Compliance
-                      </span>
-                      <h4 className="font-heading text-base font-bold text-text-primary group-hover:text-rose-300 transition-colors leading-snug">
-                        {vid.title}
-                      </h4>
-                      <p className="text-xs text-text-secondary mt-1.5 line-clamp-3 leading-relaxed">
-                        {vid.description}
-                      </p>
-                    </div>
+                    <div className="mt-6 pt-4 border-t border-white/10 flex items-center gap-2">
+                      <a
+                        href={vid.youtubeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 py-2.5 text-xs font-bold text-white transition-all shadow-md shadow-rose-600/20 border border-white/15"
+                      >
+                        <Youtube className="h-4 w-4" />
+                        <span>Watch Video</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
 
-                    <div className="rounded-2xl border border-primary/20 bg-primary/10 p-3 text-xs flex items-start gap-2">
-                      <Lightbulb className="h-4 w-4 text-primary-light shrink-0 mt-0.5" />
-                      <p className="text-[11px] text-text-secondary line-clamp-2">
-                        <strong className="text-primary-light">Auditor Tip: </strong>
-                        {vid.auditorTakeaway}
-                      </p>
+                      <button
+                        onClick={() => {
+                          setSelectedFrameworkId(vid.frameworkId);
+                          setCurrentTab('framework-details');
+                        }}
+                        className="px-3 py-2.5 rounded-xl border border-white/10 bg-white/5 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-white/10 transition-all backdrop-blur-sm"
+                        title="View Framework"
+                      >
+                        <span>Details</span>
+                      </button>
                     </div>
                   </div>
-
-                  <div className="mt-6 pt-4 border-t border-white/10 flex items-center gap-2">
-                    <a
-                      href={vid.youtubeUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 py-2.5 text-xs font-bold text-white transition-all shadow-md shadow-rose-600/20 border border-white/15"
-                    >
-                      <Youtube className="h-4 w-4" />
-                      <span>Watch Video</span>
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-
-                    <button
-                      onClick={() => {
-                        setSelectedFrameworkId(vid.frameworkId);
-                        setCurrentTab('framework-details');
-                      }}
-                      className="px-3 py-2.5 rounded-xl border border-white/10 bg-white/5 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-white/10 transition-all backdrop-blur-sm"
-                      title="View Framework"
-                    >
-                      <span>Details</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-12 text-center backdrop-blur-xl">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-text-muted mx-auto mb-3">
+                <Youtube className="h-6 w-6 text-rose-400" />
+              </div>
+              <h3 className="text-base font-bold text-text-primary">No Matching Video Guides Found</h3>
+              <p className="text-xs text-text-muted mt-1 max-w-sm mx-auto">
+                No video masterclasses matched your search criteria. Try switching the framework filter or clearing the search bar.
+              </p>
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setVideoFrameworkFilter('All');
+                }}
+                className="mt-4 rounded-xl bg-white/10 px-4 py-2 text-xs font-bold text-text-primary hover:bg-white/20 transition-all border border-white/15"
+              >
+                Reset Video Filters
+              </button>
+            </div>
+          )}
 
         </div>
       )}

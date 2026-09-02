@@ -355,8 +355,25 @@ export const GapAnalysisPage: React.FC<GapAnalysisPageProps> = ({ setCurrentTab 
               ))}
               {filteredItems.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-text-muted">
-                    No gap items match the selected filter criteria.
+                  <td colSpan={6} className="px-6 py-12 text-center text-text-muted">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-text-muted mx-auto mb-3">
+                      <SlidersHorizontal className="h-6 w-6 text-primary-light" />
+                    </div>
+                    <p className="text-sm font-bold text-text-primary">No Matching Control Gaps Found</p>
+                    <p className="text-xs text-text-muted mt-1 max-w-sm mx-auto">
+                      No compliance control records match your current search and filter settings.
+                    </p>
+                    <button
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSelectedFramework('all');
+                        setSelectedStatus('all');
+                        setSelectedRisk('all');
+                      }}
+                      className="mt-4 rounded-xl bg-white/10 px-4 py-2 text-xs font-bold text-text-primary hover:bg-white/20 transition-all border border-white/15"
+                    >
+                      Reset All Filters
+                    </button>
                   </td>
                 </tr>
               )}

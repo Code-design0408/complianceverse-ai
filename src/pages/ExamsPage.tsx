@@ -365,8 +365,20 @@ export const ExamsPage: React.FC<ExamsPageProps> = ({
                 ))}
                 {examHistory.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-text-muted">
-                      No completed exams yet. Launch your first mock exam above!
+                    <td colSpan={7} className="px-6 py-12 text-center text-text-muted">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-text-muted mx-auto mb-3">
+                        <CheckSquare className="h-6 w-6 text-primary-light" />
+                      </div>
+                      <p className="text-sm font-bold text-text-primary">No Exam Attempts Logged Yet</p>
+                      <p className="text-xs text-text-muted mt-1 max-w-sm mx-auto">
+                        Complete your first quick sprint or comprehensive practice test above to view full telemetry, accuracy metrics, and auditor takeaway breakdowns.
+                      </p>
+                      <button
+                        onClick={() => handleLaunchExam('quick')}
+                        className="mt-4 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary-dark transition-all shadow-md shadow-primary/20 border border-white/15"
+                      >
+                        Launch 10-Question Sprint (+100 XP)
+                      </button>
                     </td>
                   </tr>
                 )}

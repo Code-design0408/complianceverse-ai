@@ -158,17 +158,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       )}
 
       {/* 4 Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Stat 1: Total XP */}
         <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-xl hover:border-primary-light/40 transition-all shadow-sm">
           <div className="flex items-center justify-between text-text-muted text-xs font-semibold mb-2">
             <span>Total Experience</span>
             <Award className="h-4 w-4 text-primary-light" />
           </div>
-          <p className="text-2xl font-extrabold font-mono text-text-primary">
+          <p className="text-2xl sm:text-3xl font-extrabold font-mono text-text-primary">
             {user.xp.toLocaleString()} <span className="text-xs font-sans text-primary-light">XP</span>
           </p>
-          <p className="text-[11px] text-text-muted mt-1">Rank: {user.level}</p>
+          <p className="text-[11px] text-text-muted mt-1">Rank: <span className="text-text-secondary font-medium">{user.level}</span></p>
         </div>
 
         {/* Stat 2: Lessons Completed */}
@@ -177,11 +177,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             <span>Lessons Completed</span>
             <BookOpen className="h-4 w-4 text-accent-light" />
           </div>
-          <p className="text-2xl font-extrabold font-mono text-text-primary">
+          <p className="text-2xl sm:text-3xl font-extrabold font-mono text-text-primary">
             {completedLessonIds.length} <span className="text-xs font-sans text-text-muted">/ {totalLessonsInPlatform}</span>
           </p>
           <p className="text-[11px] text-emerald-400 mt-1 flex items-center gap-1">
-            <CheckCircle2 className="h-3 w-3" />
+            <CheckCircle2 className="h-3 w-3 shrink-0" />
             <span>{readinessPercentage}% Curriculum done</span>
           </p>
         </div>
@@ -192,7 +192,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             <span>Average Exam Score</span>
             <TrendingUp className="h-4 w-4 text-emerald-400" />
           </div>
-          <p className="text-2xl font-extrabold font-mono text-text-primary">
+          <p className="text-2xl sm:text-3xl font-extrabold font-mono text-text-primary">
             {user.averageScore}%
           </p>
           <p className="text-[11px] text-text-muted mt-1">
@@ -206,7 +206,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             <span>Badges Unlocked</span>
             <Sparkles className="h-4 w-4 text-amber-400" />
           </div>
-          <p className="text-2xl font-extrabold font-mono text-text-primary">
+          <p className="text-2xl sm:text-3xl font-extrabold font-mono text-text-primary">
             {unlockedBadgeIds.length} <span className="text-xs font-sans text-text-muted">/ {badges.length}</span>
           </p>
           <p className="text-[11px] text-amber-400 mt-1">Top Auditor Honors</p>

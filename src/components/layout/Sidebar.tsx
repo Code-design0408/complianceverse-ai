@@ -95,6 +95,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={`flex items-center gap-3 text-left group focus:outline-none transition-all ${
               isCollapsed ? 'justify-center w-full' : ''
             }`}
+            aria-label="Go to ComplianceVerse AI Dashboard"
           >
             <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-primary-dark to-black p-0.5 shadow-lg shadow-primary/25 ring-1 ring-white/15 group-hover:ring-primary-light transition-all">
               <div className="flex h-full w-full items-center justify-center rounded-[14px] bg-[#0c0c12]/90 backdrop-blur-md">
@@ -109,11 +110,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     C.<span className="text-primary-light">V</span>
                   </span>
                   <span className="rounded-full bg-primary/20 border border-primary/30 px-1.5 py-0.2 text-[9px] font-bold text-primary-light tracking-wider uppercase">
-                    GRC
+                    GRC AI
                   </span>
                 </div>
                 <p className="text-[10px] text-text-muted truncate">
-                  Cybersecurity & Compliance
+                  Enterprise Security & Audit
                 </p>
               </div>
             )}
@@ -122,18 +123,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Desktop Collapse / Expand Toggle Button */}
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="hidden lg:flex h-7 w-7 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-text-muted hover:text-text-primary hover:bg-white/10 transition-all"
+            className="hidden lg:flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-text-muted hover:text-text-primary hover:bg-white/10 transition-all focus:outline-none focus:ring-1 focus:ring-primary-light"
             title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {isCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
+            {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </button>
 
-          {/* Mobile Close Button */}
+          {/* Mobile Close Button (Minimum 44px touch area) */}
           <button
             onClick={() => setIsMobileOpen(false)}
-            className="lg:hidden flex h-7 w-7 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-text-muted hover:text-text-primary hover:bg-white/10 transition-all"
+            className="lg:hidden flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-text-muted hover:text-text-primary hover:bg-white/10 transition-all focus:outline-none"
+            aria-label="Close menu"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
@@ -143,9 +146,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             id="sidebar-comply-ai-btn"
             onClick={() => openAiModal()}
             className={`w-full flex items-center rounded-2xl border border-primary/40 bg-gradient-to-r from-primary/20 via-white/[0.04] to-black/40 text-primary-light hover:border-primary-light/60 hover:bg-primary/25 transition-all shadow-md shadow-primary/10 backdrop-blur-md group ${
-              isCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
+              isCollapsed ? 'justify-center p-2.5 min-h-[44px]' : 'justify-between px-3 py-2.5 min-h-[44px]'
             }`}
             title="Ask Comply AI Assistant"
+            aria-label="Open Comply AI Assistant"
           >
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-primary/30 border border-primary/40 text-primary-light shadow-sm group-hover:scale-105 transition-transform">
@@ -156,14 +160,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <span className="block text-xs font-bold text-text-primary leading-tight">
                     Comply AI Copilot
                   </span>
-                  <span className="block text-[10px] text-primary-light/80 leading-tight">
+                  <span className="block text-[10px] text-primary-light/80 leading-tight truncate">
                     Instant standard guidance
                   </span>
                 </div>
               )}
             </div>
             {!isCollapsed && (
-              <Zap className="h-3.5 w-3.5 text-primary-light/60 group-hover:text-primary-light transition-colors" />
+              <Zap className="h-3.5 w-3.5 text-primary-light/60 group-hover:text-primary-light transition-colors shrink-0" />
             )}
           </button>
         </div>
@@ -176,7 +180,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </span>
           )}
 
-          <nav className="space-y-1 pt-1">
+          <nav className="space-y-1 pt-1" aria-label="Main Navigation">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentTab === item.id;
@@ -187,16 +191,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   id={`sidebar-nav-${item.id}`}
                   onClick={() => handleNavClick(item.id)}
                   title={isCollapsed ? item.label : undefined}
-                  className={`relative flex w-full items-center rounded-2xl transition-all ${
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`relative flex w-full items-center rounded-2xl transition-all min-h-[42px] focus:outline-none focus:ring-1 focus:ring-primary-light ${
                     isCollapsed
                       ? 'justify-center p-2.5'
                       : 'justify-between px-3 py-2.5 text-left'
                   } ${
                     isActive
-                      ? 'bg-primary/20 text-white font-semibold border border-primary/40 shadow-sm backdrop-blur-md'
+                      ? 'bg-primary/20 text-white font-semibold border border-primary/40 shadow-sm shadow-primary/10 backdrop-blur-md'
                       : 'text-text-secondary hover:text-text-primary hover:bg-white/[0.04] border border-transparent'
                   }`}
                 >
+                  {/* Active Indicator Bar on left for expanded sidebar */}
+                  {isActive && !isCollapsed && (
+                    <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-primary-light shadow-sm" />
+                  )}
+
                   <div className="flex items-center gap-3 min-w-0">
                     <Icon
                       className={`h-4 w-4 shrink-0 transition-colors ${
@@ -244,8 +254,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             <div className="flex items-center justify-between text-xs pt-1 border-t border-white/5">
-              <span className="text-[11px] text-text-muted">{user.level}</span>
-              <span className="font-mono text-[11px] font-bold text-primary-light">
+              <span className="text-[11px] text-text-muted truncate">{user.level}</span>
+              <span className="font-mono text-[11px] font-bold text-primary-light shrink-0">
                 {user.xp.toLocaleString()} XP
               </span>
             </div>
@@ -268,7 +278,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <button
           id="sidebar-settings-btn"
           onClick={() => handleNavClick('settings')}
-          className={`flex w-full items-center rounded-2xl transition-all ${
+          className={`flex w-full items-center rounded-2xl transition-all min-h-[40px] focus:outline-none focus:ring-1 focus:ring-primary-light ${
             isCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2 text-left'
           } ${
             currentTab === 'settings'
@@ -276,6 +286,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               : 'text-text-secondary hover:text-text-primary hover:bg-white/[0.04]'
           }`}
           title={isCollapsed ? "Settings" : undefined}
+          aria-label="Settings and Preferences"
         >
           <Settings className="h-4 w-4 shrink-0 text-text-muted" />
           {!isCollapsed && <span className="text-xs font-medium">Settings & Preferences</span>}
@@ -286,10 +297,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             id="sidebar-user-menu-btn"
             onClick={() => setIsRoleMenuOpen(!isRoleMenuOpen)}
-            className={`flex w-full items-center rounded-2xl border border-white/10 bg-white/[0.04] p-2 hover:border-white/20 hover:bg-white/[0.08] transition-all backdrop-blur-sm ${
+            className={`flex w-full items-center rounded-2xl border border-white/10 bg-white/[0.04] p-2 hover:border-white/20 hover:bg-white/[0.08] transition-all backdrop-blur-sm min-h-[44px] focus:outline-none focus:ring-1 focus:ring-primary-light ${
               isCollapsed ? 'justify-center' : 'justify-between'
             }`}
             title={isCollapsed ? `${user.name} (${user.role})` : undefined}
+            aria-expanded={isRoleMenuOpen}
+            aria-label="User profile and role menu"
           >
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/25 border border-primary/40 text-primary-light font-bold text-xs">
@@ -300,7 +313,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <span className="block text-xs font-bold text-text-primary truncate">
                     {user.name}
                   </span>
-                  <span className="block text-[10px] text-primary-light uppercase font-semibold">
+                  <span className="block text-[10px] text-primary-light uppercase font-semibold truncate">
                     {user.role}
                   </span>
                 </div>
@@ -438,3 +451,4 @@ export const Sidebar: React.FC<SidebarProps> = ({
     </>
   );
 };
+
