@@ -1,0 +1,89 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account, role, level, XP, and stats",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "maxLength": 150 },
+        "role": { "type": "string", "enum": ["student", "instructor", "admin"] },
+        "level": { "type": "string", "enum": ["Beginner", "Intermediate", "Advanced", "Expert", "Lead Auditor"] },
+        "xp": { "type": "number" },
+        "streakDays": { "type": "number" },
+        "totalLessonsCompleted": { "type": "number" },
+        "totalExamsCompleted": { "type": "number" },
+        "averageScore": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "name", "email", "role", "level", "xp"]
+    },
+    "UserProgress": {
+      "title": "User Progress",
+      "description": "Completed lessons, modules, and framework tracks for a user",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "completedLessonIds": { "type": "array" },
+        "completedModuleIds": { "type": "array" },
+        "completedFrameworkIds": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "completedLessonIds", "completedModuleIds", "completedFrameworkIds"]
+    },
+    "ExamResult": {
+      "title": "Exam Result",
+      "description": "Completed assessment results, scores, and domain breakdowns",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "examType": { "type": "string", "enum": ["quick", "standard", "professional", "custom"] },
+        "frameworkId": { "type": "string", "maxLength": 50 },
+        "totalQuestions": { "type": "number" },
+        "correctAnswers": { "type": "number" },
+        "scorePercentage": { "type": "number" },
+        "passed": { "type": "boolean" },
+        "xpEarned": { "type": "number" },
+        "timeSpentSeconds": { "type": "number" },
+        "completedAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "examType", "totalQuestions", "correctAnswers", "scorePercentage", "passed", "xpEarned"]
+    },
+    "GapAssessment": {
+      "title": "Gap Assessment",
+      "description": "Compliance control gap analysis items",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "frameworkId": { "type": "string", "maxLength": 50 },
+        "controlCode": { "type": "string", "maxLength": 50 },
+        "controlTitle": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "enum": ["not_started", "planned", "partially_compliant", "fully_compliant"] },
+        "notes": { "type": "string", "maxLength": 2000 },
+        "riskLevel": { "type": "string", "enum": ["Low", "Medium", "High", "Critical"] }
+      },
+      "required": ["id", "userId", "frameworkId", "controlCode", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile records"
+    },
+    "/userProgress/{userId}": {
+      "schema": "UserProgress",
+      "description": "User learning progress records"
+    },
+    "/examResults/{resultId}": {
+      "schema": "ExamResult",
+      "description": "Exam submission records"
+    },
+    "/gapAssessments/{assessmentId}": {
+      "schema": "GapAssessment",
+      "description": "User compliance gap analysis records"
+    }
+  }
+}
