@@ -112,18 +112,18 @@ const STORAGE_KEYS = {
 };
 
 const DEFAULT_USER: UserProfile = {
-  uid: 'usr-default-01',
-  name: 'Alex Vance',
-  email: 'alex.vance@example-cloud.io',
+  uid: '',
+  name: 'Auditor',
+  email: '',
   role: 'student',
   level: 'Beginner',
-  xp: 150,
-  streakDays: 3,
+  xp: 0,
+  streakDays: 0,
   lastActiveDate: new Date().toISOString().split('T')[0],
-  totalLessonsCompleted: 3,
-  totalExamsCompleted: 1,
-  averageScore: 85,
-  createdAt: '2026-08-15T08:00:00.000Z',
+  totalLessonsCompleted: 0,
+  totalExamsCompleted: 0,
+  averageScore: 0,
+  createdAt: new Date().toISOString(),
 };
 
 function calculateLevelFromXp(xp: number): UserLevel {
@@ -132,6 +132,21 @@ function calculateLevelFromXp(xp: number): UserLevel {
   if (xp >= 600) return 'Advanced';
   if (xp >= 250) return 'Intermediate';
   return 'Beginner';
+}
+
+function computeNewStreak(prevStreak: number = 0, lastActiveDate?: string): { streakDays: number; lastActiveDate: string } {
+  const today = new Date().toISOString().split('T')[0];
+  if (!lastActiveDate || prevStreak === 0) {
+    return { streakDays: 1, lastActiveDate: today };
+  }
+  if (lastActiveDate === today) {
+    return { streakDays: prevStreak, lastActiveDate: today };
+  }
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  if (lastActiveDate === yesterday) {
+    return { streakDays: prevStreak + 1, lastActiveDate: today };
+  }
+  return { streakDays: 1, lastActiveDate: today };
 }
 
 const AuthAndDataContext = createContext<AuthAndDataContextType | undefined>(undefined);
@@ -152,7 +167,7 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
 
   const [completedLessonIds, setCompletedLessonIds] = useState<string[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.COMPLETED_LESSONS);
-    return saved ? JSON.parse(saved) : ['soc2-l1', 'iso-l1', 'nist-l1'];
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [completedModuleIds, setCompletedModuleIds] = useState<string[]>(() => {
@@ -187,27 +202,7 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
         return [];
       }
     }
-    return [
-      {
-        id: 'exam-init-01',
-        userId: 'usr-default-01',
-        examType: 'quick',
-        frameworkTitle: 'SOC 2 Foundations',
-        totalQuestions: 10,
-        correctAnswers: 9,
-        scorePercentage: 90,
-        passed: true,
-        xpEarned: 100,
-        timeSpentSeconds: 240,
-        completedAt: '2026-08-30T14:30:00.000Z',
-        answers: [],
-        domainBreakdown: {
-          'Logical Access': { total: 4, correct: 4, percentage: 100 },
-          'Auditing & Scope': { total: 3, correct: 3, percentage: 100 },
-          'Change Management': { total: 3, correct: 2, percentage: 67 }
-        }
-      }
-    ];
+    return [];
   });
 
   const [activeExamSession, setActiveExamSession] = useState<ExamSession | null>(() => {
@@ -219,7 +214,7 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
 
   const [unlockedBadgeIds, setUnlockedBadgeIds] = useState<string[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.UNLOCKED_BADGES);
-    return saved ? JSON.parse(saved) : ['badge-welcome', 'badge-first-lesson', 'badge-exam-pass'];
+    return saved ? JSON.parse(saved) : ['badge-welcome'];
   });
 
   const [recentBadgeUnlocked, setRecentBadgeUnlocked] = useState<BadgeItem | null>(null);
@@ -389,33 +384,19 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
   };
 
   const loginAs = (role: UserRole, customName?: string, customEmail?: string) => {
-    const names = {
-      student: customName || 'Alex Vance',
-      instructor: customName || 'Dr. Marcus Reyes, CISA',
-      admin: customName || 'Sarah Chen (Platform Admin)',
-    };
-    const emails = {
-      student: customEmail || 'alex.vance@example-cloud.io',
-      instructor: customEmail || 'marcus.reyes@grc-academy.edu',
-      admin: customEmail || 'admin.sarah@cv.internal',
-    };
-
-    const loggedUser: UserProfile = {
-      uid: `usr-${role}-${Date.now().toString(36)}`,
-      name: names[role],
-      email: emails[role],
-      role,
-      level: role === 'student' ? user.level : 'Lead Auditor',
-      xp: user.xp || 150,
-      streakDays: Math.max(1, user.streakDays || 1),
-      lastActiveDate: new Date().toISOString().split('T')[0],
-      totalLessonsCompleted: completedLessonIds.length,
-      totalExamsCompleted: examHistory.length,
-      averageScore: user.averageScore || 85,
-      createdAt: user.createdAt || new Date().toISOString(),
-    };
-
-    setUser(loggedUser);
+    setUser(prev => {
+      const updatedUser: UserProfile = {
+        ...prev,
+        uid: prev.uid || `usr-${role}-${Date.now().toString(36)}`,
+        name: customName || (prev.name && prev.name !== 'New Auditor' ? prev.name : 'Auditor'),
+        email: customEmail || prev.email || '',
+        role,
+      };
+      if (isSupabaseActive && prev.uid) {
+        supabaseDbService.upsertProfile(updatedUser).catch(console.warn);
+      }
+      return updatedUser;
+    });
     setIsAuthenticated(true);
   };
 
@@ -427,11 +408,14 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
     password?: string
   ): Promise<{ success: boolean; error?: string }> => {
     let finalUid = `usr-${Date.now().toString(36)}`;
+    const cleanEmail = email.trim();
+    const cleanName = name.trim() || (cleanEmail ? cleanEmail.split('@')[0].replace(/[._]/g, ' ') : 'Auditor');
+    const formattedName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
 
     // Try Supabase Sign Up if configured and password provided
     if (isSupabaseActive && password) {
       setSupabaseSyncStatus('syncing');
-      const { data, error } = await supabaseAuthService.signUp(email, password, { name, role });
+      const { data, error } = await supabaseAuthService.signUp(cleanEmail, password, { name: formattedName, role });
       if (error) {
         setSupabaseSyncStatus('error');
         return { success: false, error: error.message };
@@ -444,12 +428,12 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     const freshUser: UserProfile = {
       uid: finalUid,
-      name: name.trim() || 'New Auditor',
-      email: email.trim() || 'auditor@example.com',
+      name: formattedName,
+      email: cleanEmail,
       role,
       level: 'Beginner',
-      xp: startWithZero ? 0 : 50,
-      streakDays: 1,
+      xp: 0,
+      streakDays: 0,
       lastActiveDate: new Date().toISOString().split('T')[0],
       totalLessonsCompleted: 0,
       totalExamsCompleted: 0,
@@ -488,10 +472,14 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
     role: UserRole = 'student',
     password?: string
   ): Promise<{ success: boolean; error?: string }> => {
+    const cleanEmail = email.trim();
+    const derivedName = cleanEmail.split('@')[0]?.replace(/[._]/g, ' ') || 'Auditor';
+    const formattedName = derivedName.charAt(0).toUpperCase() + derivedName.slice(1);
+
     // If Supabase is active and password is provided, perform real Supabase sign-in
     if (isSupabaseActive && password) {
       setSupabaseSyncStatus('syncing');
-      const { data, error } = await supabaseAuthService.signIn(email, password);
+      const { data, error } = await supabaseAuthService.signIn(cleanEmail, password);
       if (error) {
         setSupabaseSyncStatus('error');
         return { success: false, error: error.message };
@@ -502,21 +490,31 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
         if (cloudProfile) {
           setUser(cloudProfile);
         } else {
-          setUser(prev => ({
-            ...prev,
+          const newProfile: UserProfile = {
             uid: data.user.id,
-            email: email.trim(),
-            role: role || prev.role,
-          }));
+            name: formattedName,
+            email: cleanEmail,
+            role: role || 'student',
+            level: 'Beginner',
+            xp: 0,
+            streakDays: 0,
+            lastActiveDate: new Date().toISOString().split('T')[0],
+            totalLessonsCompleted: 0,
+            totalExamsCompleted: 0,
+            averageScore: 0,
+            createdAt: new Date().toISOString(),
+          };
+          setUser(newProfile);
+          supabaseDbService.upsertProfile(newProfile).catch(console.warn);
         }
 
         // Pull user progress
         const cloudProgress = await supabaseDbService.getUserProgress(data.user.id);
         if (cloudProgress) {
-          if (cloudProgress.completedLessons.length > 0) setCompletedLessonIds(cloudProgress.completedLessons);
-          if (cloudProgress.completedModules.length > 0) setCompletedModuleIds(cloudProgress.completedModules);
-          if (cloudProgress.completedFrameworks.length > 0) setCompletedFrameworkIds(cloudProgress.completedFrameworks);
-          if (cloudProgress.unlockedBadges.length > 0) setUnlockedBadgeIds(cloudProgress.unlockedBadges);
+          if (cloudProgress.completedLessons) setCompletedLessonIds(cloudProgress.completedLessons);
+          if (cloudProgress.completedModules) setCompletedModuleIds(cloudProgress.completedModules);
+          if (cloudProgress.completedFrameworks) setCompletedFrameworkIds(cloudProgress.completedFrameworks);
+          if (cloudProgress.unlockedBadges) setUnlockedBadgeIds(cloudProgress.unlockedBadges);
         }
 
         // Pull exam history
@@ -531,22 +529,39 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
     // Local / fallback login
     setUser(prev => ({
       ...prev,
-      email: email.trim() || prev.email,
-      role: role || prev.role,
+      uid: prev.uid || `usr-${Date.now().toString(36)}`,
+      name: prev.name && prev.name !== 'New Auditor' ? prev.name : formattedName,
+      email: cleanEmail,
+      role: role || prev.role || 'student',
     }));
     setIsAuthenticated(true);
     return { success: true };
   };
 
-  const startFreshUser = (role: UserRole = 'student', name: string = 'New Auditor', email: string = 'auditor@example.com') => {
-    signup(name, email, role, true);
+  const startFreshUser = (role: UserRole = 'student', name?: string, email?: string) => {
+    signup(name || 'Auditor', email || '', role, true);
   };
 
   const logout = async () => {
     if (isSupabaseActive) {
-      await supabaseAuthService.signOut();
+      await supabaseAuthService.signOut().catch(console.warn);
     }
     setIsAuthenticated(false);
+    setUser(DEFAULT_USER);
+    setCompletedLessonIds([]);
+    setCompletedModuleIds([]);
+    setCompletedFrameworkIds([]);
+    setExamHistory([]);
+    setActiveExamSession(null);
+    setLastExamResult(null);
+    setUnlockedBadgeIds(['badge-welcome']);
+    localStorage.removeItem(STORAGE_KEYS.USER);
+    localStorage.removeItem(STORAGE_KEYS.AUTH_STATE);
+    localStorage.removeItem(STORAGE_KEYS.COMPLETED_LESSONS);
+    localStorage.removeItem(STORAGE_KEYS.COMPLETED_MODULES);
+    localStorage.removeItem(STORAGE_KEYS.COMPLETED_FRAMEWORKS);
+    localStorage.removeItem(STORAGE_KEYS.EXAM_HISTORY);
+    localStorage.removeItem(STORAGE_KEYS.ACTIVE_EXAM);
   };
 
   // Lesson & Progress Tracking
@@ -607,12 +622,14 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
         const nextXp = prev.xp + earnedXp;
         const nextLevel = calculateLevelFromXp(nextXp);
         if (nextXp >= 1500) checkAndUnlock('badge-lead-auditor');
+        const streakInfo = computeNewStreak(prev.streakDays, prev.lastActiveDate);
         const nextUser = {
           ...prev,
           xp: nextXp,
           level: nextLevel,
+          streakDays: streakInfo.streakDays,
+          lastActiveDate: streakInfo.lastActiveDate,
           totalLessonsCompleted: nextLessons.length,
-          lastActiveDate: new Date().toISOString().split('T')[0],
         };
 
         // Async Cloud Sync
@@ -810,10 +827,13 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
       const nextExamsCount = prev.totalExamsCompleted + 1;
       const currentAvg = prev.averageScore || 80;
       const newAvg = Math.round((currentAvg * prev.totalExamsCompleted + scorePercentage) / nextExamsCount);
+      const streakInfo = computeNewStreak(prev.streakDays, prev.lastActiveDate);
       const updatedUser = {
         ...prev,
         xp: nextXp,
         level: calculateLevelFromXp(nextXp),
+        streakDays: streakInfo.streakDays,
+        lastActiveDate: streakInfo.lastActiveDate,
         totalExamsCompleted: nextExamsCount,
         averageScore: newAvg,
       };
@@ -913,7 +933,7 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
   const resetAllDemoData = () => {
     localStorage.clear();
     setUser(DEFAULT_USER);
-    setCompletedLessonIds(['soc2-l1', 'iso-l1']);
+    setCompletedLessonIds([]);
     setCompletedModuleIds([]);
     setCompletedFrameworkIds([]);
     setExamHistory([]);
@@ -922,6 +942,8 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
     setGapAssessments(INITIAL_GAP_ASSESSMENTS);
     setQuestions(QUESTION_BANK);
   };
+
+  const resetToDemoData = resetAllDemoData;
 
   // AI Modal Controls
   const openAiModal = (context?: { framework?: string; topic?: string; prompt?: string }) => {

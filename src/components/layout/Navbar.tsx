@@ -157,102 +157,80 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
             </div>
           )}
 
-          {/* User Role Switcher Dropdown */}
-          <div className="relative">
-            <button
-              id="user-profile-menu-btn"
-              onClick={() => setIsRoleMenuOpen(!isRoleMenuOpen)}
-              className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-2.5 py-1.5 text-xs text-text-primary hover:border-white/20 hover:bg-white/10 transition-all"
-            >
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/25 border border-primary/40 text-primary-light font-bold text-xs">
-                {user.name.charAt(0)}
-              </div>
-              <span className="hidden sm:inline font-medium max-w-[90px] truncate">{user.name}</span>
-              <ChevronDown className="h-3.5 w-3.5 text-text-muted" />
-            </button>
-
-            {isRoleMenuOpen && (
-              <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-white/15 bg-[#0a0a0e]/90 p-2 shadow-2xl backdrop-blur-2xl z-50 animate-in fade-in slide-in-from-top-2">
-                <div className="px-3 py-2 border-b border-white/10">
-                  <p className="text-xs font-semibold text-text-primary">{user.name}</p>
-                  <p className="text-[11px] text-text-muted truncate">{user.email}</p>
-                  <div className="mt-1.5 flex items-center justify-between text-[10px]">
-                    <span className="rounded-full bg-primary/20 border border-primary/30 px-2 py-0.5 font-bold uppercase text-primary-light">
-                      {user.role}
-                    </span>
-                    <span className="font-mono text-text-secondary">{user.xp} XP</span>
-                  </div>
+          {/* User Section */}
+          {isAuthenticated ? (
+            <div className="relative">
+              <button
+                id="user-profile-menu-btn"
+                onClick={() => setIsRoleMenuOpen(!isRoleMenuOpen)}
+                className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-2.5 py-1.5 text-xs text-text-primary hover:border-white/20 hover:bg-white/10 transition-all"
+              >
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/25 border border-primary/40 text-primary-light font-bold text-xs">
+                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                 </div>
+                <span className="hidden sm:inline font-medium max-w-[90px] truncate">{user.name || 'My Account'}</span>
+                <ChevronDown className="h-3.5 w-3.5 text-text-muted" />
+              </button>
 
-                {/* Role Switcher */}
-                <div className="py-2 border-b border-white/10">
-                  <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
-                    Simulate User Role:
-                  </p>
-                  <div className="grid grid-cols-3 gap-1 px-1">
+              {isRoleMenuOpen && (
+                <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-white/15 bg-[#0a0a0e]/95 p-2 shadow-2xl backdrop-blur-2xl z-50 animate-in fade-in slide-in-from-top-2">
+                  <div className="px-3 py-2 border-b border-white/10">
+                    <p className="text-xs font-semibold text-text-primary">{user.name || 'Auditor'}</p>
+                    {user.email && <p className="text-[11px] text-text-muted truncate">{user.email}</p>}
+                    <div className="mt-1.5 flex items-center justify-between text-[10px]">
+                      <span className="rounded-full bg-primary/20 border border-primary/30 px-2 py-0.5 font-bold uppercase text-primary-light">
+                        {user.role}
+                      </span>
+                      <span className="font-mono text-text-secondary">{user.xp} XP</span>
+                    </div>
+                  </div>
+
+                  <div className="py-1">
                     <button
-                      id="role-switch-student"
-                      onClick={() => handleRoleChange('student')}
-                      className={`rounded-xl py-1 text-center text-xs font-medium transition-all ${
-                        user.role === 'student'
-                          ? 'bg-primary text-white font-bold shadow-md shadow-primary/20 border border-white/20'
-                          : 'bg-white/5 hover:bg-white/10 text-text-secondary border border-transparent'
-                      }`}
+                      id="settings-menu-item"
+                      onClick={() => {
+                        setCurrentTab('settings');
+                        setIsRoleMenuOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs text-text-secondary hover:bg-white/10 hover:text-text-primary transition-all"
                     >
-                      Student
+                      <Settings className="h-3.5 w-3.5" />
+                      <span>Settings & Preferences</span>
                     </button>
                     <button
-                      id="role-switch-instructor"
-                      onClick={() => handleRoleChange('instructor')}
-                      className={`rounded-xl py-1 text-center text-xs font-medium transition-all ${
-                        user.role === 'instructor'
-                          ? 'bg-primary text-white font-bold shadow-md shadow-primary/20 border border-white/20'
-                          : 'bg-white/5 hover:bg-white/10 text-text-secondary border border-transparent'
-                      }`}
+                      id="logout-menu-item"
+                      onClick={() => {
+                        logout();
+                        setIsRoleMenuOpen(false);
+                        setCurrentTab('welcome');
+                      }}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs text-rose-400 hover:bg-rose-500/10 transition-all"
                     >
-                      Instructor
-                    </button>
-                    <button
-                      id="role-switch-admin"
-                      onClick={() => handleRoleChange('admin')}
-                      className={`rounded-xl py-1 text-center text-xs font-medium transition-all ${
-                        user.role === 'admin'
-                          ? 'bg-primary text-white font-bold shadow-md shadow-primary/20 border border-white/20'
-                          : 'bg-white/5 hover:bg-white/10 text-text-secondary border border-transparent'
-                      }`}
-                    >
-                      Admin
+                      <LogOut className="h-3.5 w-3.5" />
+                      <span>Sign Out</span>
                     </button>
                   </div>
                 </div>
-
-                <div className="pt-1">
-                  <button
-                    id="settings-menu-item"
-                    onClick={() => {
-                      setCurrentTab('settings');
-                      setIsRoleMenuOpen(false);
-                    }}
-                    className="flex w-full items-center gap-2 rounded-xl px-3 py-1.5 text-xs text-text-secondary hover:bg-white/10 hover:text-text-primary transition-all"
-                  >
-                    <Settings className="h-3.5 w-3.5" />
-                    <span>Settings & Preferences</span>
-                  </button>
-                  <button
-                    id="logout-menu-item"
-                    onClick={() => {
-                      logout();
-                      setIsRoleMenuOpen(false);
-                    }}
-                    className="flex w-full items-center gap-2 rounded-xl px-3 py-1.5 text-xs text-rose-400 hover:bg-rose-500/10 transition-all"
-                  >
-                    <LogOut className="h-3.5 w-3.5" />
-                    <span>Sign Out (Guest Mode)</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                id="nav-login-btn"
+                onClick={() => setCurrentTab('auth')}
+                className="rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 px-3 py-1.5 text-xs font-semibold text-text-primary transition-all backdrop-blur-md"
+              >
+                Log In
+              </button>
+              <button
+                id="nav-signup-btn"
+                onClick={() => setCurrentTab('auth')}
+                className="rounded-xl bg-primary hover:bg-primary-dark px-3 py-1.5 text-xs font-bold text-white transition-all shadow-md shadow-primary/20 border border-white/15"
+              >
+                Sign Up
+              </button>
+            </div>
+          )}
 
           {/* Mobile Hamburger Menu Toggle */}
           <button

@@ -292,131 +292,96 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {!isCollapsed && <span className="text-xs font-medium">Settings & Preferences</span>}
         </button>
 
-        {/* User Profile Card & Role Switcher */}
-        <div className="relative">
-          <button
-            id="sidebar-user-menu-btn"
-            onClick={() => setIsRoleMenuOpen(!isRoleMenuOpen)}
-            className={`flex w-full items-center rounded-2xl border border-white/10 bg-white/[0.04] p-2 hover:border-white/20 hover:bg-white/[0.08] transition-all backdrop-blur-sm min-h-[44px] focus:outline-none focus:ring-1 focus:ring-primary-light ${
-              isCollapsed ? 'justify-center' : 'justify-between'
-            }`}
-            title={isCollapsed ? `${user.name} (${user.role})` : undefined}
-            aria-expanded={isRoleMenuOpen}
-            aria-label="User profile and role menu"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/25 border border-primary/40 text-primary-light font-bold text-xs">
-                {user.name.charAt(0)}
+        {/* User Profile Card & Auth Section */}
+        {isAuthenticated ? (
+          <div className="relative">
+            <button
+              id="sidebar-user-menu-btn"
+              onClick={() => setIsRoleMenuOpen(!isRoleMenuOpen)}
+              className={`flex w-full items-center rounded-2xl border border-white/10 bg-white/[0.04] p-2 hover:border-white/20 hover:bg-white/[0.08] transition-all backdrop-blur-sm min-h-[44px] focus:outline-none focus:ring-1 focus:ring-primary-light ${
+                isCollapsed ? 'justify-center' : 'justify-between'
+              }`}
+              title={isCollapsed ? `${user.name || 'Auditor'} (${user.role})` : undefined}
+              aria-expanded={isRoleMenuOpen}
+              aria-label="User profile menu"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/25 border border-primary/40 text-primary-light font-bold text-xs">
+                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                </div>
+                {!isCollapsed && (
+                  <div className="text-left min-w-0">
+                    <span className="block text-xs font-bold text-text-primary truncate">
+                      {user.name || 'Auditor'}
+                    </span>
+                    <span className="block text-[10px] text-primary-light uppercase font-semibold truncate">
+                      {user.role}
+                    </span>
+                  </div>
+                )}
               </div>
               {!isCollapsed && (
-                <div className="text-left min-w-0">
-                  <span className="block text-xs font-bold text-text-primary truncate">
-                    {user.name}
-                  </span>
-                  <span className="block text-[10px] text-primary-light uppercase font-semibold truncate">
-                    {user.role}
-                  </span>
-                </div>
+                <ChevronDown className="h-3.5 w-3.5 text-text-muted shrink-0" />
               )}
-            </div>
-            {!isCollapsed && (
-              <ChevronDown className="h-3.5 w-3.5 text-text-muted shrink-0" />
+            </button>
+
+            {/* Account Dropdown Popover */}
+            {isRoleMenuOpen && (
+              <div className={`absolute bottom-full mb-2 ${isCollapsed ? 'left-14 w-60' : 'left-0 right-0'} rounded-3xl border border-white/15 bg-[#0e0e14]/95 p-3 shadow-2xl backdrop-blur-2xl z-50 animate-in fade-in slide-in-from-bottom-2`}>
+                <div className="px-2 py-1.5 border-b border-white/10">
+                  <p className="text-xs font-bold text-text-primary truncate">{user.name || 'Auditor'}</p>
+                  {user.email && <p className="text-[10px] text-text-muted truncate">{user.email}</p>}
+                  <div className="mt-1.5 flex items-center justify-between text-[10px]">
+                    <span className="rounded-full bg-primary/20 border border-primary/30 px-2 py-0.5 font-bold uppercase text-primary-light">
+                      {user.role}
+                    </span>
+                    <span className="font-mono text-text-secondary">{user.xp} XP</span>
+                  </div>
+                </div>
+
+                {/* Settings & Sign Out */}
+                <div className="pt-2 space-y-1">
+                  <button
+                    id="sidebar-settings-btn"
+                    onClick={() => {
+                      handleNavClick('settings');
+                      setIsRoleMenuOpen(false);
+                    }}
+                    className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-xs text-text-secondary hover:bg-white/10 hover:text-text-primary transition-all"
+                  >
+                    <Settings className="h-3.5 w-3.5" />
+                    <span>Settings & Profile</span>
+                  </button>
+                  <button
+                    id="sidebar-logout-btn"
+                    onClick={() => {
+                      logout();
+                      setIsRoleMenuOpen(false);
+                      handleNavClick('welcome');
+                    }}
+                    className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-xs text-rose-400 hover:bg-rose-500/10 transition-all"
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              </div>
             )}
-          </button>
-
-          {/* Role Switcher & Account Dropdown Popover */}
-          {isRoleMenuOpen && (
-            <div className={`absolute bottom-full mb-2 ${isCollapsed ? 'left-14 w-60' : 'left-0 right-0'} rounded-3xl border border-white/15 bg-[#0e0e14]/95 p-3 shadow-2xl backdrop-blur-2xl z-50 animate-in fade-in slide-in-from-bottom-2`}>
-              <div className="px-2 py-1.5 border-b border-white/10">
-                <p className="text-xs font-bold text-text-primary truncate">{user.name}</p>
-                <p className="text-[10px] text-text-muted truncate">{user.email}</p>
-                <div className="mt-1.5 flex items-center justify-between text-[10px]">
-                  <span className="rounded-full bg-primary/20 border border-primary/30 px-2 py-0.5 font-bold uppercase text-primary-light">
-                    {user.role}
-                  </span>
-                  <span className="font-mono text-text-secondary">{user.xp} XP</span>
-                </div>
-              </div>
-
-              {/* Role Simulation Switcher */}
-              <div className="py-2 border-b border-white/10">
-                <p className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
-                  Simulate Role:
-                </p>
-                <div className="grid grid-cols-3 gap-1">
-                  <button
-                    id="sidebar-role-student"
-                    onClick={() => handleRoleChange('student')}
-                    className={`rounded-xl py-1 text-center text-[11px] font-medium transition-all ${
-                      user.role === 'student'
-                        ? 'bg-primary text-white font-bold border border-white/20 shadow-sm'
-                        : 'bg-white/5 hover:bg-white/10 text-text-secondary'
-                    }`}
-                  >
-                    Student
-                  </button>
-                  <button
-                    id="sidebar-role-instructor"
-                    onClick={() => handleRoleChange('instructor')}
-                    className={`rounded-xl py-1 text-center text-[11px] font-medium transition-all ${
-                      user.role === 'instructor'
-                        ? 'bg-primary text-white font-bold border border-white/20 shadow-sm'
-                        : 'bg-white/5 hover:bg-white/10 text-text-secondary'
-                    }`}
-                  >
-                    Instructor
-                  </button>
-                  <button
-                    id="sidebar-role-admin"
-                    onClick={() => handleRoleChange('admin')}
-                    className={`rounded-xl py-1 text-center text-[11px] font-medium transition-all ${
-                      user.role === 'admin'
-                        ? 'bg-primary text-white font-bold border border-white/20 shadow-sm'
-                        : 'bg-white/5 hover:bg-white/10 text-text-secondary'
-                    }`}
-                  >
-                    Admin
-                  </button>
-                </div>
-              </div>
-
-              {/* Fresh user & Auth options */}
-              <div className="py-2 border-b border-white/10 space-y-1">
-                <button
-                  id="sidebar-start-fresh-btn"
-                  onClick={() => {
-                    handleNavClick('auth');
-                    setIsRoleMenuOpen(false);
-                  }}
-                  className="flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-xs text-primary-light hover:bg-primary/10 transition-all font-semibold"
-                >
-                  <span className="flex items-center gap-1.5">
-                    <Sparkles className="h-3.5 w-3.5 text-primary-light" />
-                    <span>Sign In / Sign Up</span>
-                  </span>
-                  <span className="text-[9px] bg-primary/20 text-primary-light px-1.5 py-0.2 rounded font-bold uppercase">
-                    0 XP
-                  </span>
-                </button>
-              </div>
-
-              {/* Sign out */}
-              <div className="pt-1.5">
-                <button
-                  id="sidebar-logout-btn"
-                  onClick={() => {
-                    logout();
-                    setIsRoleMenuOpen(false);
-                  }}
-                  className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-xs text-rose-400 hover:bg-rose-500/10 transition-all"
-                >
-                  <LogOut className="h-3.5 w-3.5" />
-                  <span>Lock Session / Sign Out</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            <button
+              id="sidebar-login-btn"
+              onClick={() => handleNavClick('auth')}
+              className={`flex w-full items-center rounded-2xl border border-primary/40 bg-primary/20 hover:bg-primary/30 text-primary-light transition-all min-h-[40px] font-semibold text-xs ${
+                isCollapsed ? 'justify-center p-2.5' : 'justify-center gap-2 px-3 py-2'
+              }`}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {!isCollapsed && <span>Sign In / Sign Up</span>}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

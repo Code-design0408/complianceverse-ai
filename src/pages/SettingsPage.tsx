@@ -14,10 +14,11 @@ import { useAuthAndData } from '../context/AuthAndDataContext';
 import { UserRole } from '../types';
 
 export const SettingsPage: React.FC = () => {
-  const { user, role, loginAs, resetToDemoData, updateUserProfile, startFreshUser } = useAuthAndData();
+  const { user, role, loginAs, updateUserProfile, startFreshUser } = useAuthAndData();
 
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
+  const [userRole, setUserRole] = useState<UserRole>(role);
   const [jobTitle, setJobTitle] = useState(user.jobTitle || '');
   const [company, setCompany] = useState(user.company || '');
   const [experienceLevel, setExperienceLevel] = useState(user.experienceLevel || 'intermediate');
@@ -31,6 +32,7 @@ export const SettingsPage: React.FC = () => {
     updateUserProfile({
       name,
       email,
+      role: userRole,
       jobTitle,
       company,
       experienceLevel: experienceLevel as any,
@@ -143,9 +145,12 @@ export const SettingsPage: React.FC = () => {
                 <button
                   key={r}
                   type="button"
-                  onClick={() => loginAs(r)}
+                  onClick={() => {
+                    setUserRole(r);
+                    loginAs(r);
+                  }}
                   className={`px-4 py-2 rounded-xl border text-xs font-bold capitalize transition-all backdrop-blur-sm ${
-                    role === r
+                    userRole === r
                       ? 'border-primary-light bg-primary/30 text-white shadow-sm'
                       : 'border-white/10 bg-white/[0.03] text-text-muted hover:text-text-primary hover:border-white/20'
                   }`}
@@ -219,35 +224,23 @@ export const SettingsPage: React.FC = () => {
       <div className="rounded-3xl border border-rose-500/30 bg-rose-500/10 p-6 sm:p-8 space-y-4 backdrop-blur-xl shadow-lg">
         <div className="flex items-center gap-2 text-rose-400 font-bold text-sm">
           <Trash2 className="h-4 w-4" />
-          <span>Progress Management & Fresh Start</span>
+          <span>Progress Management</span>
         </div>
         <p className="text-xs text-text-secondary leading-relaxed max-w-xl">
-          Choose whether to start completely fresh from scratch (0 XP, 0 completed lessons, 0 exams) as a new auditor, or restore the pre-populated demo dataset.
+          Reset all your lesson progress, exam completions, and earned XP back to 0.
         </p>
         <div className="flex flex-wrap items-center gap-3 pt-2">
           <button
             type="button"
             onClick={() => {
-              if (window.confirm('Start fresh with 0 XP, 0 completed lessons, and empty exams?')) {
-                startFreshUser(user.role || 'student', user.name || 'New Learner', user.email || 'auditor@example.com');
+              if (window.confirm('Reset all progress to 0 XP and clear completed lessons?')) {
+                startFreshUser(userRole, name, email);
               }
             }}
-            className="flex items-center gap-2 rounded-xl border border-primary/40 bg-primary/20 px-4 py-2.5 text-xs font-bold text-primary-light hover:bg-primary/30 transition-all backdrop-blur-sm shadow-sm"
+            className="flex items-center gap-2 rounded-xl border border-rose-500/40 bg-rose-500/20 px-4 py-2.5 text-xs font-bold text-rose-300 hover:bg-rose-500/30 transition-all backdrop-blur-sm"
           >
             <Sparkles className="h-4 w-4" />
-            <span>Start Fresh with 0 Progress (0 XP)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (window.confirm('Restore default demo dataset with pre-completed modules and XP?')) {
-                resetToDemoData();
-              }
-            }}
-            className="rounded-xl border border-rose-500/40 bg-rose-500/20 px-4 py-2.5 text-xs font-bold text-rose-300 hover:bg-rose-500/30 transition-all backdrop-blur-sm"
-          >
-            Restore Default Demo Progress
+            <span>Reset Progress to 0 XP</span>
           </button>
         </div>
       </div>

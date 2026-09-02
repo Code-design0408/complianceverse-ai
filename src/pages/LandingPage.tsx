@@ -24,11 +24,14 @@ interface LandingPageProps {
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab }) => {
-  const { loginAs, frameworks } = useAuthAndData();
+  const { isAuthenticated, frameworks } = useAuthAndData();
 
-  const handleRoleQuickStart = (role: UserRole) => {
-    loginAs(role);
-    setCurrentTab('dashboard');
+  const handleGetStarted = () => {
+    if (isAuthenticated) {
+      setCurrentTab('dashboard');
+    } else {
+      setCurrentTab('auth');
+    }
   };
 
   const featureCards = [
@@ -100,10 +103,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab }) => {
             The comprehensive training simulator for cloud security, GRC analysts, and IT auditors. Master SOC 2, ISO 27001, NIST CSF, HIPAA, and PCI-DSS with deterministic exam scoring, gap analysis, and real-world audit scenarios.
           </p>
 
-          {/* 1-Click Role Quick Launchers & Auth */}
-          <div className="mt-10 max-w-3xl mx-auto space-y-4">
-            
-            {/* Direct New User Sign Up / Start Fresh with 0 CTA */}
+          {/* Auth & Tour Actions */}
+          <div className="mt-10 max-w-xl mx-auto">
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
                 id="hero-signup-fresh-btn"
@@ -111,7 +112,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab }) => {
                 className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-xs font-bold text-white hover:bg-primary-dark transition-all shadow-xl shadow-primary/30 border border-white/20"
               >
                 <Sparkles className="h-4 w-4 text-white animate-pulse" />
-                <span>Create New Account (Start Fresh)</span>
+                <span>Create New Account</span>
                 <ArrowRight className="h-4 w-4" />
               </button>
 
@@ -121,7 +122,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab }) => {
                 className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-2xl border border-primary/40 bg-primary/10 hover:bg-primary/20 px-6 py-3.5 text-xs font-bold text-primary-light transition-all backdrop-blur-md"
               >
                 <BookOpen className="h-4 w-4" />
-                <span>View Academy Welcome Tour</span>
+                <span>Academy Tour</span>
               </button>
 
               <button
@@ -130,69 +131,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab }) => {
                 className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.05] hover:bg-white/10 px-5 py-3.5 text-xs font-bold text-text-primary transition-all backdrop-blur-md"
               >
                 <Lock className="h-4 w-4 text-primary-light" />
-                <span>Sign In</span>
-              </button>
-            </div>
-
-            <p className="text-xs font-semibold uppercase tracking-wider text-text-muted pt-4 mb-2">
-              Or Explore Instantly with Simulated Personas:
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <button
-                id="hero-start-student"
-                onClick={() => handleRoleQuickStart('student')}
-                className="group relative rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left hover:border-primary-light/60 hover:bg-white/[0.08] backdrop-blur-xl shadow-lg hover:shadow-primary/20 transition-all"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/20 text-primary-light border border-primary/30">
-                    <GraduationCap className="h-4 w-4" />
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-text-muted group-hover:text-primary-light group-hover:translate-x-1 transition-all" />
-                </div>
-                <h3 className="font-heading font-bold text-text-primary text-sm mt-3">
-                  Student / Learner
-                </h3>
-                <p className="text-xs text-text-muted mt-1">
-                  Start learning modules, taking exams, and earning XP & badges.
-                </p>
-              </button>
-
-              <button
-                id="hero-start-instructor"
-                onClick={() => handleRoleQuickStart('instructor')}
-                className="group relative rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left hover:border-accent/60 hover:bg-white/[0.08] backdrop-blur-xl shadow-lg hover:shadow-accent/15 transition-all"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent/20 text-accent-light border border-accent/30">
-                    <UserCheck className="h-4 w-4" />
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-text-muted group-hover:text-accent-light group-hover:translate-x-1 transition-all" />
-                </div>
-                <h3 className="font-heading font-bold text-text-primary text-sm mt-3">
-                  Lead Auditor / Instructor
-                </h3>
-                <p className="text-xs text-text-muted mt-1">
-                  Manage question banks, inspect audit rubrics, and guide scenarios.
-                </p>
-              </button>
-
-              <button
-                id="hero-start-admin"
-                onClick={() => handleRoleQuickStart('admin')}
-                className="group relative rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left hover:border-purple-400/60 hover:bg-white/[0.08] backdrop-blur-xl shadow-lg hover:shadow-purple-500/15 transition-all"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                    <ShieldAlert className="h-4 w-4" />
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-text-muted group-hover:text-purple-300 group-hover:translate-x-1 transition-all" />
-                </div>
-                <h3 className="font-heading font-bold text-text-primary text-sm mt-3">
-                  Platform Admin
-                </h3>
-                <p className="text-xs text-text-muted mt-1">
-                  Full control over curriculum, custom questions, and system stats.
-                </p>
+                <span>Log In</span>
               </button>
             </div>
           </div>
@@ -273,17 +212,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab }) => {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
-                onClick={() => handleRoleQuickStart('student')}
+                onClick={handleGetStarted}
                 className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-white hover:bg-primary-dark shadow-lg shadow-primary/25 border border-white/15 transition-all"
               >
                 <span>Launch Auditor Dashboard</span>
                 <ArrowRight className="h-4 w-4" />
               </button>
               <button
-                onClick={() => {
-                  loginAs('student');
-                  setCurrentTab('library');
-                }}
+                onClick={() => setCurrentTab('library')}
                 className="w-full sm:w-auto rounded-xl border border-white/15 bg-white/10 px-6 py-3 text-sm font-medium text-text-primary hover:bg-white/15 transition-all backdrop-blur-sm"
               >
                 Browse All Frameworks
