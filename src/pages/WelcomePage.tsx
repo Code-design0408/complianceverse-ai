@@ -37,16 +37,12 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
 }) => {
   const { user, isAuthenticated, completedLessonIds, frameworks, openAiModal } = useAuthAndData();
 
-  // Helper to ensure user is directed to signup / login if not authenticated
-  const handleProtectedAction = (authenticatedTab: string, frameworkId?: string) => {
+  // Helper to ensure user is directed to the requested tab and framework
+  const handleProtectedAction = (targetTab: string, frameworkId?: string) => {
     if (frameworkId && setSelectedFrameworkId) {
       setSelectedFrameworkId(frameworkId);
     }
-    if (!isAuthenticated) {
-      setCurrentTab('signup');
-    } else {
-      setCurrentTab(authenticatedTab);
-    }
+    setCurrentTab(targetTab);
   };
 
   // Role path recommendation state

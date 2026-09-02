@@ -99,17 +99,38 @@ interface AuthAndDataContextType {
 }
 
 const STORAGE_KEYS = {
-  USER: 'complianceverse_user_v2',
-  COMPLETED_LESSONS: 'complianceverse_completed_lessons_v2',
-  COMPLETED_MODULES: 'complianceverse_completed_modules_v2',
-  COMPLETED_FRAMEWORKS: 'complianceverse_completed_frameworks_v2',
-  EXAM_HISTORY: 'complianceverse_exam_history_v2',
-  ACTIVE_EXAM: 'complianceverse_active_exam_v2',
-  UNLOCKED_BADGES: 'complianceverse_unlocked_badges_v2',
-  GAP_ASSESSMENTS: 'complianceverse_gap_assessments_v2',
-  CUSTOM_QUESTIONS: 'complianceverse_custom_questions_v2',
-  AUTH_STATE: 'complianceverse_auth_state_v2',
+  USER: 'complianceverse_user_v3',
+  COMPLETED_LESSONS: 'complianceverse_completed_lessons_v3',
+  COMPLETED_MODULES: 'complianceverse_completed_modules_v3',
+  COMPLETED_FRAMEWORKS: 'complianceverse_completed_frameworks_v3',
+  EXAM_HISTORY: 'complianceverse_exam_history_v3',
+  ACTIVE_EXAM: 'complianceverse_active_exam_v3',
+  UNLOCKED_BADGES: 'complianceverse_unlocked_badges_v3',
+  GAP_ASSESSMENTS: 'complianceverse_gap_assessments_v3',
+  CUSTOM_QUESTIONS: 'complianceverse_custom_questions_v3',
+  AUTH_STATE: 'complianceverse_auth_state_v3',
 };
+
+// Clean legacy localStorage keys from prior mock versions
+try {
+  const legacyKeys = [
+    'complianceverse_user',
+    'complianceverse_user_v1',
+    'complianceverse_user_v2',
+    'complianceverse_auth_state',
+    'complianceverse_auth_state_v1',
+    'complianceverse_auth_state_v2',
+    'complianceverse_completed_lessons_v2',
+    'complianceverse_completed_modules_v2',
+    'complianceverse_completed_frameworks_v2',
+    'complianceverse_exam_history_v2',
+    'complianceverse_active_exam_v2',
+    'complianceverse_unlocked_badges_v2',
+  ];
+  legacyKeys.forEach(k => localStorage.removeItem(k));
+} catch {
+  // Ignore in SSR or restricted environments
+}
 
 const DEFAULT_USER: UserProfile = {
   uid: '',

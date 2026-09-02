@@ -32,7 +32,7 @@ import { ExamResult } from './types';
 const MainAppContent: React.FC = () => {
   const { frameworks, isAuthenticated } = useAuthAndData();
   const [currentTab, setCurrentTab] = useState<string>(() => {
-    const saved = localStorage.getItem('complianceverse_auth_state_v2');
+    const saved = localStorage.getItem('complianceverse_auth_state_v3');
     const isAuth = saved !== null ? JSON.parse(saved) : false;
     return isAuth ? 'dashboard' : 'welcome';
   });
@@ -42,25 +42,7 @@ const MainAppContent: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
 
-  // If user logs out, redirect to welcome page
-  React.useEffect(() => {
-    if (!isAuthenticated && currentTab !== 'landing' && currentTab !== 'welcome' && currentTab !== 'signup' && currentTab !== 'login') {
-      setCurrentTab('welcome');
-    }
-  }, [isAuthenticated, currentTab]);
-
   const renderActiveView = () => {
-    // If not authenticated and not explicitly viewing public landing or welcome page, show Auth / Sign Up
-    if (!isAuthenticated && currentTab !== 'landing' && currentTab !== 'welcome' && currentTab !== 'login' && currentTab !== 'signup') {
-      return (
-        <AuthPage
-          onSuccess={() => setCurrentTab('dashboard')}
-          onExploreLanding={() => setCurrentTab('welcome')}
-          defaultTab="signup"
-        />
-      );
-    }
-
     switch (currentTab) {
       case 'landing':
         return <LandingPage setCurrentTab={setCurrentTab} />;
@@ -128,6 +110,7 @@ const MainAppContent: React.FC = () => {
       case 'gap-analysis':
         return <GapAnalysisPage setCurrentTab={setCurrentTab} />;
       case 'matrix':
+      case 'comparison':
         return <FrameworkComparisonPage />;
       case 'analytics':
         return <AnalyticsPage setCurrentTab={setCurrentTab} />;
@@ -164,7 +147,7 @@ const MainAppContent: React.FC = () => {
   };
 
   const isExamActive = currentTab === 'active-exam';
-  const isAuthView = !isAuthenticated && currentTab !== 'landing' && currentTab !== 'welcome';
+  const isAuthView = currentTab === 'auth' || currentTab === 'login' || currentTab === 'signup';
 
   return (
     <div className="min-h-screen bg-background text-text-primary selection:bg-primary/30 selection:text-white flex flex-col">
