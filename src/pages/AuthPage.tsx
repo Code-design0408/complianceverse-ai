@@ -20,7 +20,6 @@ import {
   AlertCircle,
   Clock,
   ArrowLeft,
-  Zap,
 } from 'lucide-react';
 import { useAuthAndData } from '../context/AuthAndDataContext';
 import { UserRole } from '../types';
@@ -75,8 +74,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [otpExpiryTimer, setOtpExpiryTimer] = useState<number>(900); // 15 mins in seconds
   const [forgotSuccessMsg, setForgotSuccessMsg] = useState<string | null>(null);
-  const [activeOtpCode, setActiveOtpCode] = useState<string | null>(null);
-  const [showFastRescue, setShowFastRescue] = useState<boolean>(false);
   const [resendCooldown, setResendCooldown] = useState<number>(0);
 
   const [formError, setFormError] = useState<string | null>(null);
@@ -194,11 +191,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         return;
       }
 
-      if (res.otp) {
-        setActiveOtpCode(res.otp);
-      }
       setForgotOtp('');
-      setShowFastRescue(false);
       setResendCooldown(30); // 30s cooldown before next resend
       setOtpExpiryTimer(900); // 15 minutes
       setForgotStep('verify');
@@ -817,7 +810,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                         </span>
                       </div>
                       <p className="text-text-secondary text-[11px] leading-relaxed">
-                        We dispatched a 4-digit code to <strong className="text-text-primary underline">{forgotEmail}</strong>. Please check your inbox and <strong>Spam / Junk</strong> folder (Sender: <em>FormSubmit / ComplianceVerse</em>).
+                        We dispatched your 4-digit code to <strong className="text-text-primary underline">{forgotEmail}</strong>. Please check your inbox and <strong>Spam / Junk</strong> folder (Sender: <em>ComplianceVerse / Supabase</em>).
                       </p>
                     </div>
                   </div>
@@ -881,56 +874,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     >
                       {resendCooldown > 0 ? `Resend OTP (${resendCooldown}s)` : 'Resend New OTP'}
                     </button>
-                  </div>
-
-                  {/* Fast Instant Recovery If Email Is Delayed */}
-                  <div className="pt-2 border-t border-white/10">
-                    {!showFastRescue ? (
-                      <div className="flex items-center justify-center">
-                        <button
-                          type="button"
-                          id="cant-receive-email-btn"
-                          onClick={() => setShowFastRescue(true)}
-                          className="text-[11px] text-amber-300/90 hover:text-amber-200 transition-colors flex items-center gap-1.5 py-1 px-3 rounded-lg hover:bg-amber-500/10 border border-amber-500/20"
-                        >
-                          <Zap className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                          <span>Didn't receive email or taking too long? Click here</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-amber-300 flex items-center gap-1.5">
-                            <Zap className="h-3.5 w-3.5 text-amber-400" /> Instant Code Access
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setShowFastRescue(false)}
-                            className="text-[10px] text-text-muted hover:text-text-primary"
-                          >
-                            Hide
-                          </button>
-                        </div>
-                        <p className="text-[11px] text-text-secondary leading-relaxed">
-                          If your email provider delays delivery or filtered it, your current 4-digit verification code is:
-                        </p>
-                        <div className="flex items-center justify-between bg-black/40 rounded-lg px-3 py-2 border border-white/10">
-                          <div className="font-mono text-base font-bold tracking-widest text-emerald-400">
-                            {activeOtpCode || '----'}
-                          </div>
-                          <button
-                            type="button"
-                            id="autofill-otp-btn"
-                            onClick={() => {
-                              if (activeOtpCode) setForgotOtp(activeOtpCode);
-                            }}
-                            className="px-2.5 py-1 rounded bg-primary/40 hover:bg-primary/60 text-white font-semibold text-[10px] border border-primary/40 transition-all cursor-pointer"
-                          >
-                            Auto-Fill Code
-                          </button>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </form>
               )}

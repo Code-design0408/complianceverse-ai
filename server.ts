@@ -106,7 +106,6 @@ app.post('/api/auth/send-reset-otp', async (req, res) => {
     return res.json({
       success: true,
       emailSent,
-      otp: cleanOtp,
       message: emailSent
         ? `4-digit OTP dispatched to ${cleanEmail}. Please check your Inbox and Spam folder.`
         : `4-digit OTP generated for ${cleanEmail}.`,

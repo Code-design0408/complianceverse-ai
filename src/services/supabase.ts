@@ -754,6 +754,13 @@ export const supabaseAuthService = {
       } catch (err: any) {
         console.warn('Supabase requestPasswordResetOtp notice:', err);
       }
+
+      // Also trigger Supabase Auth built-in email delivery for fast inbox arrival (<60s)
+      try {
+        await client.auth.resetPasswordForEmail(cleanEmail);
+      } catch (supabaseEmailErr: any) {
+        console.warn('Supabase auth.resetPasswordForEmail status:', supabaseEmailErr?.message);
+      }
     }
 
     // Dispatch real email via server email endpoint
@@ -774,7 +781,6 @@ export const supabaseAuthService = {
 
     return {
       success: true,
-      otp: activeOtp,
       emailSent,
       message: emailSent
         ? `4-digit verification code dispatched to ${cleanEmail}. Please check your Inbox and Spam folder.`
