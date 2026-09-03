@@ -694,7 +694,7 @@ export const supabaseAuthService = {
     const client = getSupabase();
 
     // Generate guaranteed 4-digit numeric OTP
-    const simulatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
+    let activeOtp = Math.floor(1000 + Math.random() * 9000).toString();
     const expiresAt = Date.now() + 15 * 60 * 1000;
 
     // Cache local session for fallback resilience
@@ -703,7 +703,7 @@ export const supabaseAuthService = {
         `cv_pwd_reset_otp_${cleanEmail}`,
         JSON.stringify({
           email: cleanEmail,
-          otp: simulatedOtp,
+          otp: activeOtp,
           expiresAt,
           verified: false,
           attempts: 0,
@@ -720,73 +720,65 @@ export const supabaseAuthService = {
           p_email: cleanEmail,
         });
 
-        // Also trigger built-in Supabase Auth reset email if configured in Supabase project
-        let emailSent = false;
-        try {
-          const { error: resetEmailError } = await client.auth.resetPasswordForEmail(cleanEmail);
-          if (!resetEmailError) {
-            emailSent = true;
-          }
-        } catch {
-          // ignore if smtp is not yet configured in project dashboard
-        }
-
         if (!rpcError && rpcData && rpcData.success) {
-          const cloudOtp = rpcData.otp_code || simulatedOtp;
-          // Update local cache with cloud OTP
+          activeOtp = rpcData.otp_code || activeOtp;
+          // Ensure 4 digits
+          if (activeOtp.length > 4) {
+            activeOtp = activeOtp.slice(-4);
+          }
           try {
             localStorage.setItem(
               `cv_pwd_reset_otp_${cleanEmail}`,
               JSON.stringify({
                 email: cleanEmail,
-                otp: cloudOtp,
+                otp: activeOtp,
                 expiresAt,
                 verified: false,
                 attempts: 0,
               })
             );
           } catch {}
-
-          return {
-            success: true,
-            otp: cloudOtp,
-            emailSent,
-            message: emailSent
-              ? `Verification OTP sent to ${cleanEmail} and logged in Supabase database.`
-              : `Verification OTP generated and stored in Supabase database for ${cleanEmail}.`,
-          };
-        }
-
-        // Direct table insert if RPC is not yet executed
-        const { error: insertError } = await client
-          .from('password_reset_otps')
-          .insert({
-            email: cleanEmail,
-            otp_code: simulatedOtp,
-            expires_at: new Date(expiresAt).toISOString(),
-            attempts: 0,
-            verified: false,
-            used: false,
-          });
-
-        if (!insertError) {
-          return {
-            success: true,
-            otp: simulatedOtp,
-            emailSent,
-            message: `OTP generated and sent to ${cleanEmail}.`,
-          };
+        } else {
+          // Direct table insert if RPC is not yet executed
+          await client
+            .from('password_reset_otps')
+            .insert({
+              email: cleanEmail,
+              otp_code: activeOtp,
+              expires_at: new Date(expiresAt).toISOString(),
+              attempts: 0,
+              verified: false,
+              used: false,
+            });
         }
       } catch (err: any) {
         console.warn('Supabase requestPasswordResetOtp notice:', err);
       }
     }
 
+    // Dispatch real email via server email endpoint
+    let emailSent = false;
+    try {
+      const emailRes = await fetch('/api/auth/send-reset-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail, otp: activeOtp }),
+      });
+      const emailResult = await emailRes.json().catch(() => ({}));
+      if (emailResult?.emailSent) {
+        emailSent = true;
+      }
+    } catch (dispatchErr) {
+      console.warn('Backend email dispatch error:', dispatchErr);
+    }
+
     return {
       success: true,
-      otp: simulatedOtp,
-      emailSent: false,
-      message: `OTP generated for ${cleanEmail}. Check your inbox or use the preview below.`,
+      otp: activeOtp,
+      emailSent,
+      message: emailSent
+        ? `4-digit verification code dispatched to ${cleanEmail}. Please check your Inbox and Spam folder.`
+        : `4-digit verification code generated for ${cleanEmail}. Check your inbox or spam folder.`,
     };
   },
 

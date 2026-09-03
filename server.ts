@@ -50,6 +50,73 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', service: 'ComplianceVerse AI Full-Stack Server', timestamp: new Date().toISOString() });
 });
 
+// Fast Email Dispatch Endpoint for 4-Digit Password Reset OTP
+app.post('/api/auth/send-reset-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, error: 'Email and OTP are required' });
+    }
+
+    const cleanEmail = String(email).trim().toLowerCase();
+    const cleanOtp = String(otp).trim();
+
+    console.log(`[Email Dispatch] Triggered 4-digit OTP dispatch for: ${cleanEmail}`);
+
+    // High-speed dispatch to external email gateway with 5s timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    let emailSent = false;
+    try {
+      const response = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(cleanEmail)}`, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Origin': 'https://complianceverse.app',
+          'Referer': 'https://complianceverse.app',
+        },
+        body: JSON.stringify({
+          _subject: `ComplianceVerse - Your 4-Digit Security Code: ${cleanOtp}`,
+          _captcha: 'false',
+          _template: 'box',
+          verification_code: cleanOtp,
+          security_code: cleanOtp,
+          instructions: 'Enter this 4-digit code in ComplianceVerse to verify your identity and reset your password. This code expires in 15 minutes.',
+          recipient: cleanEmail,
+          requested_at: new Date().toISOString(),
+        }),
+      });
+      clearTimeout(timeoutId);
+
+      const data = await response.json().catch(() => ({}));
+      if (data && (data.success === 'true' || data.success === true)) {
+        emailSent = true;
+        console.log(`[Email Dispatch] Successfully sent OTP email to ${cleanEmail}`);
+      } else {
+        console.warn(`[Email Dispatch] Gateway notice for ${cleanEmail}:`, data);
+      }
+    } catch (dispatchError: any) {
+      clearTimeout(timeoutId);
+      console.warn(`[Email Dispatch] Gateway error for ${cleanEmail}:`, dispatchError.message);
+    }
+
+    return res.json({
+      success: true,
+      emailSent,
+      otp: cleanOtp,
+      message: emailSent
+        ? `4-digit OTP dispatched to ${cleanEmail}. Please check your Inbox and Spam folder.`
+        : `4-digit OTP generated for ${cleanEmail}.`,
+    });
+  } catch (error: any) {
+    console.error('Error in /api/auth/send-reset-otp:', error);
+    return res.status(500).json({ success: false, error: 'Failed to process OTP dispatch' });
+  }
+});
+
 // Comply AI Chat Endpoint
 app.post('/api/comply-ai/chat', async (req, res) => {
   try {
