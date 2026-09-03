@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ShieldCheck,
   Lock,
@@ -14,15 +14,20 @@ import {
   Database,
   Copy,
   Check,
-  Code
+  Code,
+  KeyRound,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  ArrowLeft,
 } from 'lucide-react';
 import { useAuthAndData } from '../context/AuthAndDataContext';
 import { UserRole } from '../types';
-import { SUPABASE_SQL_SCHEMA } from '../services/supabase';
+import { SUPABASE_SQL_SCHEMA, SUPABASE_PASSWORD_QUERIES } from '../services/supabase';
 
 interface AuthPageProps {
   onSuccess?: () => void;
-  defaultTab?: 'login' | 'signup';
+  defaultTab?: 'login' | 'signup' | 'forgot-password';
   onExploreLanding?: () => void;
 }
 
@@ -34,12 +39,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const {
     signup,
     loginWithCredentials,
+    requestPasswordResetOtp,
+    verifyPasswordResetOtp,
+    resetPasswordWithOtp,
     isSupabaseActive,
-    supabaseSyncStatus,
-    lastCloudSyncTime,
   } = useAuthAndData();
 
-  const [activeTab, setActiveTab] = useState<'login' | 'signup'>(defaultTab);
+  const [activeTab, setActiveTab] = useState<'login' | 'signup' | 'forgot-password'>(defaultTab);
   const [isLoading, setIsLoading] = useState(false);
 
   // Sign Up Form State
@@ -58,14 +64,42 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
+  // Forgot Password / OTP Flow State
+  const [forgotStep, setForgotStep] = useState<'request' | 'verify' | 'new_password' | 'success'>('request');
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotOtp, setForgotOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [otpExpiryTimer, setOtpExpiryTimer] = useState<number>(900); // 15 mins in seconds
+  const [forgotSuccessMsg, setForgotSuccessMsg] = useState<string | null>(null);
+
   const [formError, setFormError] = useState<string | null>(null);
   const [showSchemaModal, setShowSchemaModal] = useState(false);
+  const [schemaModalTab, setSchemaModalTab] = useState<'password_queries' | 'full_schema'>('password_queries');
   const [copiedSchema, setCopiedSchema] = useState(false);
+  const [copiedPasswordQueries, setCopiedPasswordQueries] = useState(false);
+
+  // Countdown timer for OTP expiry
+  useEffect(() => {
+    if (forgotStep !== 'verify' && forgotStep !== 'new_password') return;
+    const interval = setInterval(() => {
+      setOtpExpiryTimer(prev => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [forgotStep]);
 
   const handleCopySchema = () => {
     navigator.clipboard.writeText(SUPABASE_SQL_SCHEMA);
     setCopiedSchema(true);
     setTimeout(() => setCopiedSchema(false), 2500);
+  };
+
+  const handleCopyPasswordQueries = () => {
+    navigator.clipboard.writeText(SUPABASE_PASSWORD_QUERIES);
+    setCopiedPasswordQueries(true);
+    setTimeout(() => setCopiedPasswordQueries(false), 2500);
   };
 
   // Handle Signup
@@ -128,6 +162,104 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     }
   };
 
+  // Handle Step 1: Request Password Reset OTP
+  const handleRequestOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+
+    if (!forgotEmail.trim() || !forgotEmail.includes('@')) {
+      setFormError('Please enter the valid email address associated with your account.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await requestPasswordResetOtp(forgotEmail);
+      if (!res.success) {
+        setFormError(res.error || 'Unable to request password reset OTP. Please try again.');
+        setIsLoading(false);
+        return;
+      }
+
+      setOtpExpiryTimer(900); // 15 minutes
+      setForgotStep('verify');
+    } catch (err: any) {
+      setFormError(err.message || 'Failed to send OTP code.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle Step 2: Verify OTP
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+
+    const cleanCode = forgotOtp.trim();
+    if (cleanCode.length < 4) {
+      setFormError('Please enter the complete 4-digit OTP code.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await verifyPasswordResetOtp(forgotEmail, cleanCode);
+      if (!res.success) {
+        setFormError(res.error || 'Invalid or expired OTP code.');
+        setIsLoading(false);
+        return;
+      }
+
+      setForgotStep('new_password');
+    } catch (err: any) {
+      setFormError(err.message || 'Failed to verify OTP code.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle Step 3: Set New Password & Update in Database
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+
+    if (newPassword.length < 6) {
+      setFormError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setFormError('Passwords do not match. Please ensure both fields are identical.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await resetPasswordWithOtp(forgotEmail, forgotOtp, newPassword);
+      if (!res.success) {
+        setFormError(res.error || 'Failed to update password in database.');
+        setIsLoading(false);
+        return;
+      }
+
+      setForgotSuccessMsg(res.message || 'Your password has been successfully reset in the Supabase database.');
+      setForgotStep('success');
+      // Pre-fill login email for quick subsequent login
+      setLoginEmail(forgotEmail);
+      setLoginPassword(newPassword);
+    } catch (err: any) {
+      setFormError(err.message || 'Failed to reset password.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const formatTimer = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-8 sm:px-6 bg-background relative overflow-hidden">
       {/* Ambient background glows */}
@@ -176,7 +308,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         {/* Main Auth Container */}
         <div className="rounded-2xl sm:rounded-3xl border border-white/15 bg-white/[0.04] p-5 sm:p-6 backdrop-blur-2xl shadow-2xl space-y-5">
           
-          {/* Mode Switcher Tabs - Only Sign Up and Sign In */}
+          {/* Mode Switcher Tabs - Sign Up and Log In only */}
           <div className="grid grid-cols-2 gap-1 rounded-xl bg-white/[0.04] p-1 border border-white/10 backdrop-blur-md">
             <button
               type="button"
@@ -501,13 +633,16 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
                 <button
                   type="button"
+                  id="login-forgot-password-link"
                   onClick={() => {
-                    setActiveTab('signup');
+                    setActiveTab('forgot-password');
+                    setForgotStep('request');
+                    if (loginEmail) setForgotEmail(loginEmail);
                     setFormError(null);
                   }}
                   className="text-primary-light hover:underline font-semibold"
                 >
-                  Need an account? Sign Up
+                  Forgot password?
                 </button>
               </div>
 
@@ -549,6 +684,305 @@ export const AuthPage: React.FC<AuthPageProps> = ({
             </form>
           )}
 
+          {/* FORGOT PASSWORD WORKFLOW (Email -> OTP Verification -> Reset Password) */}
+          {activeTab === 'forgot-password' && (
+            <div className="space-y-4 animate-in fade-in">
+              {/* Back to Login Breadcrumb / Header */}
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('login');
+                    setFormError(null);
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-text-primary transition-colors font-medium"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span>Back to Login</span>
+                </button>
+
+                <span className="text-[11px] font-mono text-primary-light bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
+                  {forgotStep === 'request' && 'Step 1 of 3: Request OTP'}
+                  {forgotStep === 'verify' && 'Step 2 of 3: Enter OTP'}
+                  {forgotStep === 'new_password' && 'Step 3 of 3: New Password'}
+                  {forgotStep === 'success' && 'Reset Complete'}
+                </span>
+              </div>
+
+              {/* Step 1: Request OTP via Email */}
+              {forgotStep === 'request' && (
+                <form onSubmit={handleRequestOtp} className="space-y-4">
+                  <div className="rounded-2xl border border-primary/30 bg-primary/10 p-3.5 flex items-start gap-3 backdrop-blur-sm">
+                    <KeyRound className="h-5 w-5 text-primary-light shrink-0 mt-0.5" />
+                    <div className="text-xs space-y-0.5">
+                      <p className="font-bold text-text-primary">
+                        Forgot Password
+                      </p>
+                      <p className="text-text-secondary text-[11px] leading-relaxed">
+                        Enter your registered email address. We will send a secure 4-digit OTP code directly to your email inbox and record it in the Supabase database for verification so you can reset your password.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-text-secondary">
+                      Registered Email Address
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
+                      <input
+                        type="email"
+                        id="forgot-email-input"
+                        required
+                        placeholder="auditor@company.io"
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        className="w-full rounded-2xl border border-white/10 bg-white/[0.04] pl-10 pr-4 py-2.5 text-xs text-text-primary placeholder:text-text-muted focus:border-primary-light focus:outline-none backdrop-blur-md"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    id="request-otp-btn"
+                    disabled={isLoading}
+                    className="w-full flex items-center justify-center gap-2 rounded-2xl bg-primary py-3 text-xs font-bold text-white hover:bg-primary-dark transition-all shadow-lg shadow-primary/25 border border-white/15 disabled:opacity-50"
+                  >
+                    {isLoading ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        <span>Sending Reset OTP to Email...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Mail className="h-4 w-4" />
+                        <span>Send OTP to Email</span>
+                        <ArrowRight className="h-4 w-4" />
+                      </>
+                    )}
+                  </button>
+
+                  <div className="text-center pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('login');
+                        setFormError(null);
+                      }}
+                      className="text-xs text-text-muted hover:text-text-primary inline-flex items-center gap-1.5"
+                    >
+                      <ArrowLeft className="h-3 w-3" />
+                      <span>Remembered your password? Back to Login</span>
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Step 2: Verify OTP */}
+              {forgotStep === 'verify' && (
+                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  <div className="rounded-2xl border border-sky-500/30 bg-sky-500/10 p-3.5 flex items-start gap-3 backdrop-blur-sm">
+                    <Mail className="h-5 w-5 text-sky-400 shrink-0 mt-0.5" />
+                    <div className="text-xs space-y-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-text-primary">
+                          OTP Sent to Your Email
+                        </p>
+                        <span className="rounded-md bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-sky-300 border border-sky-500/30">
+                          Check Inbox
+                        </span>
+                      </div>
+                      <p className="text-text-secondary text-[11px] leading-relaxed">
+                        We have dispatched a 4-digit verification code to <strong className="text-text-primary underline">{forgotEmail}</strong>. Please check your inbox (and spam folder) and enter the code below.
+                      </p>
+                      <div className="flex items-center gap-2 pt-1">
+                        <span className="text-[10px] text-sky-300 font-mono bg-sky-500/20 px-2 py-0.5 rounded-full border border-sky-500/30">
+                          Expires in: {formatTimer(otpExpiryTimer)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-text-secondary">
+                      4-Digit OTP Code
+                    </label>
+                    <div className="relative">
+                      <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
+                      <input
+                        type="text"
+                        id="otp-code-input"
+                        required
+                        maxLength={4}
+                        placeholder="e.g. 8421"
+                        value={forgotOtp}
+                        onChange={(e) => setForgotOtp(e.target.value.replace(/\D/g, ''))}
+                        className="w-full rounded-2xl border border-white/10 bg-white/[0.04] pl-10 pr-4 py-2.5 text-center font-mono tracking-widest text-lg font-bold text-text-primary placeholder:text-text-muted focus:border-primary-light focus:outline-none backdrop-blur-md"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    id="verify-otp-btn"
+                    disabled={isLoading || forgotOtp.trim().length < 4}
+                    className="w-full flex items-center justify-center gap-2 rounded-2xl bg-primary py-3 text-xs font-bold text-white hover:bg-primary-dark transition-all shadow-lg shadow-primary/25 border border-white/15 disabled:opacity-50"
+                  >
+                    {isLoading ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        <span>Verifying with Database...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Verify OTP Code</span>
+                        <ArrowRight className="h-4 w-4" />
+                      </>
+                    )}
+                  </button>
+
+                  <div className="flex items-center justify-between text-xs text-text-muted pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setForgotStep('request')}
+                      className="hover:text-text-primary inline-flex items-center gap-1"
+                    >
+                      <ArrowLeft className="h-3 w-3" />
+                      <span>Change Email</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleRequestOtp}
+                      className="text-primary-light hover:underline font-semibold"
+                    >
+                      Resend New OTP
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Step 3: Set New Password & Update into Database */}
+              {forgotStep === 'new_password' && (
+                <form onSubmit={handleResetPassword} className="space-y-4">
+                  <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 flex items-start gap-3 backdrop-blur-sm">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+                    <div className="text-xs space-y-0.5">
+                      <p className="font-bold text-text-primary">
+                        OTP Verified Successfully
+                      </p>
+                      <p className="text-text-secondary text-[11px] leading-relaxed">
+                        Enter your new security password. When you save, it will be encrypted and updated into the Supabase database.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* New Password */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-text-secondary">
+                      New Security Password
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
+                      <input
+                        type={showNewPassword ? 'text' : 'password'}
+                        id="new-password-input"
+                        required
+                        placeholder="At least 6 characters"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="w-full rounded-2xl border border-white/10 bg-white/[0.04] pl-10 pr-10 py-2.5 text-xs text-text-primary placeholder:text-text-muted focus:border-primary-light focus:outline-none backdrop-blur-md"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+                      >
+                        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Confirm Password */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-text-secondary">
+                      Confirm New Password
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        id="confirm-password-input"
+                        required
+                        placeholder="Re-enter password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="w-full rounded-2xl border border-white/10 bg-white/[0.04] pl-10 pr-10 py-2.5 text-xs text-text-primary placeholder:text-text-muted focus:border-primary-light focus:outline-none backdrop-blur-md"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    id="save-new-password-btn"
+                    disabled={isLoading}
+                    className="w-full flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-3 text-xs font-bold text-white hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-600/25 border border-white/15 disabled:opacity-50"
+                  >
+                    {isLoading ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        <span>Updating Password in Database...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Update Password in Supabase Database</span>
+                        <ArrowRight className="h-4 w-4" />
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+
+              {/* Step 4: Success Message */}
+              {forgotStep === 'success' && (
+                <div className="space-y-4 text-center animate-in zoom-in-95">
+                  <div className="inline-flex items-center justify-center h-14 w-14 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 mx-auto">
+                    <CheckCircle2 className="h-8 w-8" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-bold text-text-primary">
+                      Password Reset Complete
+                    </h3>
+                    <p className="text-xs text-text-secondary leading-relaxed">
+                      {forgotSuccessMsg || 'Your new password has been securely stored in the Supabase database. You can now log in.'}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    id="proceed-to-login-btn"
+                    onClick={() => {
+                      setActiveTab('login');
+                      setFormError(null);
+                    }}
+                    className="w-full flex items-center justify-center gap-2 rounded-2xl bg-primary py-3 text-xs font-bold text-white hover:bg-primary-dark transition-all shadow-lg shadow-primary/25 border border-white/15"
+                  >
+                    <span>Proceed to Log In</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
 
         {/* Explore Public Overview / Landing Option */}
@@ -577,8 +1011,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     <Database className="h-5 w-5" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-text-primary">Supabase Database Setup</h3>
-                    <p className="text-[11px] text-text-muted">Table schemas and RLS security policies</p>
+                    <h3 className="text-sm font-bold text-text-primary">Supabase Database & SQL Queries</h3>
+                    <p className="text-[11px] text-text-muted">Password storage queries, OTP verification & database schema</p>
                   </div>
                 </div>
                 <button
@@ -590,43 +1024,110 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 </button>
               </div>
 
-              <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-xs text-text-secondary space-y-2">
-                <p>
-                  To sync user progress, profiles, exam results, and gap assessments to your own Supabase project:
-                </p>
-                <ol className="list-decimal list-inside space-y-1 text-text-muted text-[11px]">
-                  <li>Go to your project at <strong>supabase.com</strong></li>
-                  <li>Open the <strong>SQL Editor</strong> in the left sidebar</li>
-                  <li>Click <strong>New Query</strong>, paste the schema below, and click <strong>Run</strong></li>
-                  <li>Set <code className="text-primary-light font-mono">VITE_SUPABASE_URL</code> & <code className="text-primary-light font-mono">VITE_SUPABASE_ANON_KEY</code> in project secrets</li>
-                </ol>
+              {/* Sub-Tabs: Password Queries vs Full Schema */}
+              <div className="grid grid-cols-2 gap-1 rounded-xl bg-white/[0.04] p-1 border border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setSchemaModalTab('password_queries')}
+                  className={`rounded-lg py-1.5 text-xs font-semibold transition-all ${
+                    schemaModalTab === 'password_queries'
+                      ? 'bg-primary text-white shadow-sm'
+                      : 'text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  Password Storage & OTP Queries
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSchemaModalTab('full_schema')}
+                  className={`rounded-lg py-1.5 text-xs font-semibold transition-all ${
+                    schemaModalTab === 'full_schema'
+                      ? 'bg-primary text-white shadow-sm'
+                      : 'text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  Full Database Schema (.sql)
+                </button>
               </div>
 
-              <div className="relative">
-                <div className="flex items-center justify-between pb-1 text-xs text-text-muted font-mono">
-                  <span>supabase-schema.sql</span>
-                  <button
-                    type="button"
-                    onClick={handleCopySchema}
-                    className="flex items-center gap-1 text-[11px] text-primary-light hover:underline font-semibold"
-                  >
-                    {copiedSchema ? (
-                      <>
-                        <Check className="h-3.5 w-3.5 text-emerald-400" />
-                        <span className="text-emerald-400">Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3.5 w-3.5" />
-                        <span>Copy SQL</span>
-                      </>
-                    )}
-                  </button>
+              {/* Password Queries View */}
+              {schemaModalTab === 'password_queries' && (
+                <div className="space-y-3">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3.5 text-xs text-text-secondary space-y-1.5">
+                    <p className="font-semibold text-text-primary">
+                      Password Storage & OTP Reset Query Implementation:
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 text-text-muted text-[11px]">
+                      <li><strong>Password Storage:</strong> Passwords are encrypted via bcrypt (<code className="text-primary-light font-mono">crypt(new_password, gen_salt('bf'))</code>) and stored in <code className="text-primary-light font-mono">auth.users</code>.</li>
+                      <li><strong>Forgot Password OTP Table:</strong> Generates and stores 6-digit numeric OTPs in <code className="text-primary-light font-mono">public.password_reset_otps</code> with 15-minute expiration and max attempt checks.</li>
+                      <li><strong>Stored Functions:</strong> Includes <code className="text-primary-light font-mono">generate_password_reset_otp</code>, <code className="text-primary-light font-mono">verify_password_reset_otp</code>, and <code className="text-primary-light font-mono">reset_password_with_otp</code>.</li>
+                    </ul>
+                  </div>
+
+                  <div className="relative">
+                    <div className="flex items-center justify-between pb-1 text-xs text-text-muted font-mono">
+                      <span>supabase-password-queries.sql</span>
+                      <button
+                        type="button"
+                        onClick={handleCopyPasswordQueries}
+                        className="flex items-center gap-1 text-[11px] text-primary-light hover:underline font-semibold"
+                      >
+                        {copiedPasswordQueries ? (
+                          <>
+                            <Check className="h-3.5 w-3.5 text-emerald-400" />
+                            <span className="text-emerald-400">Copied Queries!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3.5 w-3.5" />
+                            <span>Copy Password Queries</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <pre className="rounded-2xl border border-white/10 bg-black/60 p-4 font-mono text-[11px] text-primary-light overflow-x-auto max-h-64 leading-relaxed">
+                      {SUPABASE_PASSWORD_QUERIES}
+                    </pre>
+                  </div>
                 </div>
-                <pre className="rounded-2xl border border-white/10 bg-black/60 p-4 font-mono text-[11px] text-primary-light overflow-x-auto max-h-60 leading-relaxed">
-                  {SUPABASE_SQL_SCHEMA}
-                </pre>
-              </div>
+              )}
+
+              {/* Full Schema View */}
+              {schemaModalTab === 'full_schema' && (
+                <div className="space-y-3">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3.5 text-xs text-text-secondary space-y-1.5">
+                    <p>
+                      Run this complete SQL script in your Supabase project (<strong>Dashboard &gt; SQL Editor</strong>) to initialize all tables, RLS security policies, and indexes:
+                    </p>
+                  </div>
+
+                  <div className="relative">
+                    <div className="flex items-center justify-between pb-1 text-xs text-text-muted font-mono">
+                      <span>supabase-schema.sql</span>
+                      <button
+                        type="button"
+                        onClick={handleCopySchema}
+                        className="flex items-center gap-1 text-[11px] text-primary-light hover:underline font-semibold"
+                      >
+                        {copiedSchema ? (
+                          <>
+                            <Check className="h-3.5 w-3.5 text-emerald-400" />
+                            <span className="text-emerald-400">Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3.5 w-3.5" />
+                            <span>Copy Full SQL</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <pre className="rounded-2xl border border-white/10 bg-black/60 p-4 font-mono text-[11px] text-primary-light overflow-x-auto max-h-64 leading-relaxed">
+                      {SUPABASE_SQL_SCHEMA}
+                    </pre>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

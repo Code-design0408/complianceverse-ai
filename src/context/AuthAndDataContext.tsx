@@ -38,6 +38,9 @@ interface AuthAndDataContextType {
   loginWithCredentials: (email: string, role?: UserRole, password?: string) => Promise<{ success: boolean; error?: string }>;
   startFreshUser: (role?: UserRole, name?: string, email?: string) => void;
   logout: () => Promise<void>;
+  requestPasswordResetOtp: (email: string) => Promise<{ success: boolean; otp?: string; message: string; error?: string }>;
+  verifyPasswordResetOtp: (email: string, otp: string) => Promise<{ success: boolean; message: string; error?: string }>;
+  resetPasswordWithOtp: (email: string, otp: string, newPassword: string) => Promise<{ success: boolean; message: string; error?: string }>;
 
   // Supabase Status & Cloud Sync
   isSupabaseActive: boolean;
@@ -500,6 +503,19 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
       }).catch(console.warn);
     }
 
+    if (password) {
+      try {
+        localStorage.setItem(
+          `cv_user_cred_${cleanEmail.toLowerCase()}`,
+          JSON.stringify({
+            email: cleanEmail.toLowerCase(),
+            password,
+            updatedAt: new Date().toISOString(),
+          })
+        );
+      } catch {}
+    }
+
     return { success: true };
   };
 
@@ -562,6 +578,22 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
       return { success: true };
     }
 
+    // Local / fallback credential check if password was configured
+    if (!isSupabaseActive && password) {
+      try {
+        const savedCred = localStorage.getItem(`cv_user_cred_${cleanEmail.toLowerCase()}`);
+        if (savedCred) {
+          const parsed = JSON.parse(savedCred);
+          if (parsed.password && parsed.password !== password) {
+            return {
+              success: false,
+              error: 'Incorrect password. If you forgot your password, please use "Forgot Password" to receive a reset OTP.',
+            };
+          }
+        }
+      } catch {}
+    }
+
     // Local / fallback login
     setUser(prev => ({
       ...prev,
@@ -572,6 +604,19 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
     }));
     setIsAuthenticated(true);
     return { success: true };
+  };
+
+  // Supabase Database OTP Password Reset Methods
+  const requestPasswordResetOtp = async (email: string) => {
+    return await supabaseAuthService.requestPasswordResetOtp(email);
+  };
+
+  const verifyPasswordResetOtp = async (email: string, otp: string) => {
+    return await supabaseAuthService.verifyPasswordResetOtp(email, otp);
+  };
+
+  const resetPasswordWithOtp = async (email: string, otp: string, newPassword: string) => {
+    return await supabaseAuthService.resetPasswordWithOtp(email, otp, newPassword);
   };
 
   const startFreshUser = (role: UserRole = 'student', name?: string, email?: string) => {
@@ -1022,6 +1067,9 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
         loginWithCredentials,
         startFreshUser,
         logout,
+        requestPasswordResetOtp,
+        verifyPasswordResetOtp,
+        resetPasswordWithOtp,
         isSupabaseActive,
         supabaseSyncStatus,
         lastCloudSyncTime,
