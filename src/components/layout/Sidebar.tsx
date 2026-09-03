@@ -46,6 +46,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setUserRole,
     logout,
     openAiModal,
+    openAuthPrompt,
     activeExamSession
   } = useAuthAndData();
 
@@ -77,6 +78,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleNavClick = (tabId: string) => {
+    if (!isAuthenticated && tabId !== 'welcome' && tabId !== 'landing') {
+      openAuthPrompt({
+        title: 'Sign Up or Log In Required',
+        message: 'Please sign up or log in first to access platform modules, exams, and auditor tools.',
+        targetTab: tabId,
+      });
+      return;
+    }
     setCurrentTab(tabId);
     if (isMobileOpen) {
       setIsMobileOpen(false);
@@ -91,7 +100,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex items-center justify-between px-1.5 py-1">
           <button
             id="sidebar-brand-btn"
-            onClick={() => handleNavClick('dashboard')}
+            onClick={() => handleNavClick(isAuthenticated ? 'dashboard' : 'welcome')}
             className={`flex items-center gap-3 text-left group focus:outline-none transition-all ${
               isCollapsed ? 'justify-center w-full' : ''
             }`}
@@ -372,7 +381,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="space-y-1.5">
             <button
               id="sidebar-login-btn"
-              onClick={() => handleNavClick('auth')}
+              onClick={() => setCurrentTab('login')}
               className={`flex w-full items-center rounded-2xl border border-primary/40 bg-primary/20 hover:bg-primary/30 text-primary-light transition-all min-h-[40px] font-semibold text-xs ${
                 isCollapsed ? 'justify-center p-2.5' : 'justify-center gap-2 px-3 py-2'
               }`}

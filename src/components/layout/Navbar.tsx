@@ -33,6 +33,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
     setUserRole,
     logout,
     openAiModal,
+    openAuthPrompt,
     activeExamSession
   } = useAuthAndData();
 
@@ -100,6 +101,14 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
                 key={item.id}
                 id={`nav-link-${item.id}`}
                 onClick={() => {
+                  if (!isAuthenticated) {
+                    openAuthPrompt({
+                      title: 'Sign Up or Log In Required',
+                      message: `Please sign up or log in first to access ${item.label} and platform modules.`,
+                      targetTab: item.id,
+                    });
+                    return;
+                  }
                   setCurrentTab(item.id);
                 }}
                 className={`relative flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-xl transition-all ${
@@ -130,7 +139,17 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
           {/* Comply AI Quick Copilot Button */}
           <button
             id="comply-ai-nav-trigger"
-            onClick={() => openAiModal()}
+            onClick={() => {
+              if (!isAuthenticated) {
+                openAuthPrompt({
+                  title: 'Sign Up or Log In Required',
+                  message: 'Please sign up or log in first to consult the Comply AI Copilot.',
+                  targetTab: 'welcome',
+                });
+                return;
+              }
+              openAiModal();
+            }}
             className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 backdrop-blur-md px-3 py-1.5 text-xs font-semibold text-primary-light hover:border-primary-light/50 hover:bg-white/10 transition-all shadow-sm group"
           >
             <Sparkles className="h-3.5 w-3.5 text-primary-light animate-pulse" />
@@ -217,14 +236,14 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
             <div className="flex items-center gap-2">
               <button
                 id="nav-login-btn"
-                onClick={() => setCurrentTab('auth')}
+                onClick={() => setCurrentTab('login')}
                 className="rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 px-3 py-1.5 text-xs font-semibold text-text-primary transition-all backdrop-blur-md"
               >
                 Log In
               </button>
               <button
                 id="nav-signup-btn"
-                onClick={() => setCurrentTab('auth')}
+                onClick={() => setCurrentTab('signup')}
                 className="rounded-xl bg-primary hover:bg-primary-dark px-3 py-1.5 text-xs font-bold text-white transition-all shadow-md shadow-primary/20 border border-white/15"
               >
                 Sign Up
@@ -255,8 +274,16 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
                 <button
                   key={item.id}
                   onClick={() => {
-                    setCurrentTab(item.id);
                     setIsMobileMenuOpen(false);
+                    if (!isAuthenticated) {
+                      openAuthPrompt({
+                        title: 'Sign Up or Log In Required',
+                        message: `Please sign up or log in first to access ${item.label} and interactive modules.`,
+                        targetTab: item.id,
+                      });
+                      return;
+                    }
+                    setCurrentTab(item.id);
                   }}
                   className={`flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
                     isActive

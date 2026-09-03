@@ -35,12 +35,21 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
   setCurrentTab,
   setSelectedFrameworkId
 }) => {
-  const { user, isAuthenticated, completedLessonIds, frameworks, openAiModal } = useAuthAndData();
+  const { user, isAuthenticated, completedLessonIds, frameworks, openAiModal, openAuthPrompt } = useAuthAndData();
 
-  // Helper to ensure user is directed to the requested tab and framework
+  // Helper to ensure user is directed to the requested tab and framework or prompted
   const handleProtectedAction = (targetTab: string, frameworkId?: string) => {
     if (frameworkId && setSelectedFrameworkId) {
       setSelectedFrameworkId(frameworkId);
+    }
+    if (!isAuthenticated) {
+      openAuthPrompt({
+        title: 'Sign Up or Log In Required',
+        message: 'Please sign up or log in first to access platform modules, study compliance frameworks, and take certification exams.',
+        targetTab,
+        frameworkId,
+      });
+      return;
     }
     setCurrentTab(targetTab);
   };
@@ -309,7 +318,11 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
               id="welcome-open-ai-btn"
               onClick={() => {
                 if (!isAuthenticated) {
-                  setCurrentTab('signup');
+                  openAuthPrompt({
+                    title: 'Sign Up or Log In Required',
+                    message: 'Please sign up or log in first to use the ComplyAI Auditor Copilot.',
+                    targetTab: 'welcome',
+                  });
                 } else {
                   openAiModal();
                 }
@@ -691,7 +704,11 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
           <div
             onClick={() => {
               if (!isAuthenticated) {
-                setCurrentTab('signup');
+                openAuthPrompt({
+                  title: 'Sign Up or Log In Required',
+                  message: 'Please sign up or log in first to use the ComplyAI Auditor Bot.',
+                  targetTab: 'welcome',
+                });
               } else {
                 openAiModal();
               }

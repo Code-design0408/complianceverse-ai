@@ -24,13 +24,17 @@ interface LandingPageProps {
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab }) => {
-  const { isAuthenticated, frameworks } = useAuthAndData();
+  const { isAuthenticated, frameworks, openAuthPrompt } = useAuthAndData();
 
   const handleGetStarted = () => {
     if (isAuthenticated) {
       setCurrentTab('dashboard');
     } else {
-      setCurrentTab('auth');
+      openAuthPrompt({
+        title: 'Sign Up or Log In Required',
+        message: 'Please sign up or log in first to launch the Auditor Dashboard and track your progress.',
+        targetTab: 'dashboard',
+      });
     }
   };
 
@@ -141,7 +145,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab }) => {
             {frameworks.map((f) => (
               <div
                 key={f.id}
-                className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-2 backdrop-blur-md hover:border-primary-light/40 transition-colors shadow-sm"
+                onClick={() => {
+                  if (!isAuthenticated) {
+                    openAuthPrompt({
+                      title: 'Sign Up or Log In Required',
+                      message: `Please sign up or log in first to access ${f.shortName || f.title} platform modules.`,
+                      targetTab: 'library',
+                    });
+                  } else {
+                    setCurrentTab('library');
+                  }
+                }}
+                className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-2 backdrop-blur-md hover:border-primary-light/40 hover:bg-white/[0.08] transition-all shadow-sm cursor-pointer"
               >
                 <ShieldCheck className="h-4 w-4 text-primary-light" />
                 <div className="text-left">
@@ -219,7 +234,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab }) => {
                 <ArrowRight className="h-4 w-4" />
               </button>
               <button
-                onClick={() => setCurrentTab('library')}
+                onClick={() => {
+                  if (!isAuthenticated) {
+                    openAuthPrompt({
+                      title: 'Sign Up or Log In Required',
+                      message: 'Please sign up or log in first to browse frameworks and platform curriculum modules.',
+                      targetTab: 'library',
+                    });
+                  } else {
+                    setCurrentTab('library');
+                  }
+                }}
                 className="w-full sm:w-auto rounded-xl border border-white/15 bg-white/10 px-6 py-3 text-sm font-medium text-text-primary hover:bg-white/15 transition-all backdrop-blur-sm"
               >
                 Browse All Frameworks

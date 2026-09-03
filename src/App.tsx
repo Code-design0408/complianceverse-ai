@@ -4,12 +4,14 @@
  */
 
 import React, { useState } from 'react';
+import { ShieldAlert } from 'lucide-react';
 import { AuthAndDataProvider, useAuthAndData } from './context/AuthAndDataContext';
 import { Sidebar } from './components/layout/Sidebar';
 import { MobileHeader } from './components/layout/MobileHeader';
 import { Footer } from './components/layout/Footer';
 import { ComplyAIAssistantModal } from './components/modals/ComplyAIAssistantModal';
 import { BadgeUnlockedModal } from './components/modals/BadgeUnlockedModal';
+import { AuthPromptModal } from './components/modals/AuthPromptModal';
 
 // Pages
 import { LandingPage } from './pages/LandingPage';
@@ -43,6 +45,47 @@ const MainAppContent: React.FC = () => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
 
   const renderActiveView = () => {
+    // If not authenticated and attempting to view any protected module tab directly, show prompt banner
+    const isPublicTab = ['welcome', 'landing', 'auth', 'login', 'signup'].includes(currentTab);
+    if (!isAuthenticated && !isPublicTab) {
+      return (
+        <div className="min-h-[75vh] flex items-center justify-center p-6 text-center">
+          <div className="max-w-md w-full rounded-3xl border border-white/15 bg-[#0e0e14]/90 p-8 backdrop-blur-2xl shadow-2xl space-y-4">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/20 border border-primary/40 text-primary-light">
+              <ShieldAlert className="h-7 w-7" />
+            </div>
+            <h2 className="text-xl font-bold text-text-primary">Sign Up or Log In Required</h2>
+            <p className="text-xs text-text-secondary leading-relaxed">
+              Please sign up or log in first to access this platform module, take certification exams, and track compliance progress.
+            </p>
+            <div className="pt-3 space-y-2.5">
+              <button
+                id="view-guard-signup-btn"
+                onClick={() => setCurrentTab('signup')}
+                className="w-full py-3 px-4 rounded-xl bg-primary hover:bg-primary-dark text-xs font-bold text-white transition-all shadow-lg shadow-primary/25 border border-white/15 cursor-pointer"
+              >
+                Create Free Account / Sign Up
+              </button>
+              <button
+                id="view-guard-login-btn"
+                onClick={() => setCurrentTab('login')}
+                className="w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-text-primary transition-all border border-white/10 cursor-pointer"
+              >
+                Log In to Existing Account
+              </button>
+              <button
+                id="view-guard-welcome-btn"
+                onClick={() => setCurrentTab('welcome')}
+                className="text-xs text-text-muted hover:text-text-secondary pt-2 block mx-auto transition-colors cursor-pointer"
+              >
+                Return to Welcome Overview
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     switch (currentTab) {
       case 'landing':
         return <LandingPage setCurrentTab={setCurrentTab} />;
@@ -193,6 +236,7 @@ const MainAppContent: React.FC = () => {
       {/* Global Modals */}
       <ComplyAIAssistantModal />
       <BadgeUnlockedModal />
+      <AuthPromptModal onNavigate={setCurrentTab} onSelectFramework={setSelectedFrameworkId} />
     </div>
   );
 };

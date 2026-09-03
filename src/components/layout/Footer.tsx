@@ -1,11 +1,35 @@
 import React from 'react';
 import { Shield, Lock, AlertCircle, FileCheck, CheckCircle2 } from 'lucide-react';
+import { useAuthAndData } from '../../context/AuthAndDataContext';
 
 interface FooterProps {
   setCurrentTab: (tab: string) => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({ setCurrentTab }) => {
+  const { isAuthenticated, openAuthPrompt } = useAuthAndData();
+
+  const handleModuleClick = (tab: string, moduleName: string) => {
+    if (!isAuthenticated) {
+      openAuthPrompt({
+        title: 'Sign Up or Log In Required',
+        message: `Please sign up or log in first to access ${moduleName} and interactive platform learning modules.`,
+        targetTab: tab,
+      });
+      return;
+    }
+    setCurrentTab(tab);
+  };
+
+  const frameworksList = [
+    { name: 'SOC 2 Type II', id: 'soc2' },
+    { name: 'ISO/IEC 27001:2022', id: 'iso27001' },
+    { name: 'NIST CSF 2.0', id: 'nistcsf' },
+    { name: 'HIPAA Security', id: 'hipaa' },
+    { name: 'PCI-DSS v4.0', id: 'pcidss' },
+    { name: 'GDPR Privacy', id: 'gdpr' },
+  ];
+
   return (
     <footer className="border-t border-white/10 bg-white/[0.03] backdrop-blur-xl pt-12 pb-8 text-text-secondary mt-16">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -25,11 +49,26 @@ export const Footer: React.FC<FooterProps> = ({ setCurrentTab }) => {
               The premier interactive learning management and exam certification simulator for cybersecurity, privacy, and GRC professionals. Master SOC 2, ISO 27001, NIST CSF, HIPAA, PCI-DSS, and GDPR with deterministic scoring and AI-guided remediation.
             </p>
             <div className="flex flex-wrap gap-2 pt-1">
-              {['SOC 2 Type II', 'ISO/IEC 27001:2022', 'NIST CSF 2.0', 'HIPAA Security', 'PCI-DSS v4.0', 'GDPR Privacy'].map((f) => (
-                <span key={f} className="inline-flex items-center gap-1 rounded-lg bg-white/5 border border-white/10 px-2.5 py-1 text-[11px] text-text-secondary font-mono backdrop-blur-sm">
+              {frameworksList.map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      openAuthPrompt({
+                        title: 'Sign Up or Log In Required',
+                        message: `Please sign up or log in first to access ${f.name} platform modules and study tracks.`,
+                        targetTab: 'framework-details',
+                        frameworkId: f.id,
+                      });
+                    } else {
+                      setCurrentTab('library');
+                    }
+                  }}
+                  className="inline-flex items-center gap-1 rounded-lg bg-white/5 border border-white/10 px-2.5 py-1 text-[11px] text-text-secondary font-mono backdrop-blur-sm hover:border-primary/40 hover:text-primary-light hover:bg-white/10 transition-all cursor-pointer"
+                >
                   <CheckCircle2 className="h-3 w-3 text-emerald-400" />
-                  {f}
-                </span>
+                  {f.name}
+                </button>
               ))}
             </div>
           </div>
@@ -41,32 +80,56 @@ export const Footer: React.FC<FooterProps> = ({ setCurrentTab }) => {
             </h4>
             <ul className="space-y-2 text-xs">
               <li>
-                <button onClick={() => setCurrentTab('dashboard')} className="hover:text-primary-light transition-colors">
+                <button
+                  id="footer-nav-dashboard"
+                  onClick={() => handleModuleClick('dashboard', 'the Auditor Dashboard')}
+                  className="hover:text-primary-light transition-colors text-left"
+                >
                   Auditor Dashboard
                 </button>
               </li>
               <li>
-                <button onClick={() => setCurrentTab('library')} className="hover:text-primary-light transition-colors">
+                <button
+                  id="footer-nav-library"
+                  onClick={() => handleModuleClick('library', 'the Framework Curriculum')}
+                  className="hover:text-primary-light transition-colors text-left"
+                >
                   Framework Curriculum
                 </button>
               </li>
               <li>
-                <button onClick={() => setCurrentTab('exams')} className="hover:text-primary-light transition-colors">
+                <button
+                  id="footer-nav-exams"
+                  onClick={() => handleModuleClick('exams', 'Certification Exams')}
+                  className="hover:text-primary-light transition-colors text-left"
+                >
                   Certification Exams
                 </button>
               </li>
               <li>
-                <button onClick={() => setCurrentTab('gap-analysis')} className="hover:text-primary-light transition-colors">
+                <button
+                  id="footer-nav-gap"
+                  onClick={() => handleModuleClick('gap-analysis', 'the Gap Assessment Tool')}
+                  className="hover:text-primary-light transition-colors text-left"
+                >
                   Gap Assessment Tool
                 </button>
               </li>
               <li>
-                <button onClick={() => setCurrentTab('comparison')} className="hover:text-primary-light transition-colors">
+                <button
+                  id="footer-nav-comparison"
+                  onClick={() => handleModuleClick('comparison', 'the Cross-Framework Matrix')}
+                  className="hover:text-primary-light transition-colors text-left"
+                >
                   Cross-Framework Matrix
                 </button>
               </li>
               <li>
-                <button onClick={() => setCurrentTab('analytics')} className="hover:text-primary-light transition-colors">
+                <button
+                  id="footer-nav-analytics"
+                  onClick={() => handleModuleClick('analytics', 'Audit Readiness Analytics')}
+                  className="hover:text-primary-light transition-colors text-left"
+                >
                   Audit Readiness Analytics
                 </button>
               </li>

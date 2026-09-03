@@ -96,6 +96,12 @@ interface AuthAndDataContextType {
   closeAiModal: () => void;
   aiModalInitialPrompt: string;
   aiModalContext: { framework?: string; topic?: string } | undefined;
+
+  // Auth Prompt Alert / Modal Controls
+  isAuthPromptOpen: boolean;
+  authPromptInfo: { title?: string; message?: string; targetTab?: string; frameworkId?: string } | null;
+  openAuthPrompt: (info?: { title?: string; message?: string; targetTab?: string; frameworkId?: string }) => void;
+  closeAuthPrompt: () => void;
 }
 
 const STORAGE_KEYS = {
@@ -249,6 +255,15 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [aiModalInitialPrompt, setAiModalInitialPrompt] = useState('');
   const [aiModalContext, setAiModalContext] = useState<{ framework?: string; topic?: string } | undefined>(undefined);
+
+  // Auth Prompt Alert / Modal state
+  const [isAuthPromptOpen, setIsAuthPromptOpen] = useState(false);
+  const [authPromptInfo, setAuthPromptInfo] = useState<{
+    title?: string;
+    message?: string;
+    targetTab?: string;
+    frameworkId?: string;
+  } | null>(null);
 
   // Supabase State
   const isSupabaseActive = isSupabaseConfigured();
@@ -978,6 +993,22 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
     setIsAiModalOpen(false);
   };
 
+  // Auth Prompt Alert / Modal Controls
+  const openAuthPrompt = (info?: {
+    title?: string;
+    message?: string;
+    targetTab?: string;
+    frameworkId?: string;
+  }) => {
+    setAuthPromptInfo(info || null);
+    setIsAuthPromptOpen(true);
+  };
+
+  const closeAuthPrompt = () => {
+    setIsAuthPromptOpen(false);
+    setAuthPromptInfo(null);
+  };
+
   return (
     <AuthAndDataContext.Provider
       value={{
@@ -1035,6 +1066,10 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
         closeAiModal,
         aiModalInitialPrompt,
         aiModalContext,
+        isAuthPromptOpen,
+        authPromptInfo,
+        openAuthPrompt,
+        closeAuthPrompt,
       }}
     >
       {children}
