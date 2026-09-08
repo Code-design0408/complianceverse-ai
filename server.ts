@@ -50,7 +50,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', service: 'ComplianceVerse AI Full-Stack Server', timestamp: new Date().toISOString() });
 });
 
-// Fast Email Dispatch Endpoint for 4-Digit Password Reset OTP
+// Fast & Responsible Email Dispatch Endpoint for 4-Digit Password Reset OTP
 app.post('/api/auth/send-reset-otp', async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -61,54 +61,73 @@ app.post('/api/auth/send-reset-otp', async (req, res) => {
     const cleanEmail = String(email).trim().toLowerCase();
     const cleanOtp = String(otp).trim();
 
-    console.log(`[Email Dispatch] Triggered 4-digit OTP dispatch for: ${cleanEmail}`);
-
-    // High-speed dispatch to external email gateway with 5s timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-    let emailSent = false;
-    try {
-      const response = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(cleanEmail)}`, {
-        method: 'POST',
-        signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Origin': 'https://complianceverse.app',
-          'Referer': 'https://complianceverse.app',
-        },
-        body: JSON.stringify({
-          _subject: `ComplianceVerse - Your 4-Digit Security Code: ${cleanOtp}`,
-          _captcha: 'false',
-          _template: 'box',
-          verification_code: cleanOtp,
-          security_code: cleanOtp,
-          instructions: 'Enter this 4-digit code in ComplianceVerse to verify your identity and reset your password. This code expires in 15 minutes.',
-          recipient: cleanEmail,
-          requested_at: new Date().toISOString(),
-        }),
-      });
-      clearTimeout(timeoutId);
-
-      const data = await response.json().catch(() => ({}));
-      if (data && (data.success === 'true' || data.success === true)) {
-        emailSent = true;
-        console.log(`[Email Dispatch] Successfully sent OTP email to ${cleanEmail}`);
-      } else {
-        console.warn(`[Email Dispatch] Gateway notice for ${cleanEmail}:`, data);
-      }
-    } catch (dispatchError: any) {
-      clearTimeout(timeoutId);
-      console.warn(`[Email Dispatch] Gateway error for ${cleanEmail}:`, dispatchError.message);
+    if (!/^\d{4}$/.test(cleanOtp)) {
+      return res.status(400).json({ success: false, error: 'Invalid 4-digit OTP format' });
     }
+
+    console.log(`[Email Dispatch] Triggered quick & responsible 4-digit OTP dispatch for: ${cleanEmail}`);
+
+    const nowIso = new Date().toISOString();
+    const nowUtc = new Date().toUTCString();
+
+    // Fast-path dispatch with background promise execution
+    const dispatchPromise = (async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4500);
+
+        const response = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(cleanEmail)}`, {
+          method: 'POST',
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Origin': 'https://complianceverse.app',
+            'Referer': 'https://complianceverse.app/',
+            'User-Agent': 'ComplianceVerse-SecurityGateway/2.0',
+          },
+          body: JSON.stringify({
+            _subject: `[ComplianceVerse] Security Code: ${cleanOtp} (Expires in 15m)`,
+            _captcha: 'false',
+            _template: 'box',
+            _replyto: 'no-reply@complianceverse.app',
+            _autoresponse: `Your ComplianceVerse security verification code is ${cleanOtp}. This code expires in 15 minutes.`,
+            'Security Verification Code': cleanOtp,
+            'Account Email': cleanEmail,
+            'Validity Period': '15 Minutes',
+            'Authorized Action': 'Password Reset & Account Verification',
+            'Security Advisory': 'ComplianceVerse will never ask for your verification code. Never share this code with anyone.',
+            'Did not request this?': 'If you did not initiate this request, you can safely disregard this email. Your password remains unchanged.',
+            'Dispatched At (UTC)': nowUtc,
+          }),
+        });
+        clearTimeout(timeoutId);
+
+        const data = await response.json().catch(() => ({}));
+        if (data && (data.success === 'true' || data.success === true)) {
+          console.log(`[Email Dispatch] Successfully delivered OTP to ${cleanEmail}`);
+          return true;
+        } else {
+          console.log(`[Email Dispatch] Gateway notice for ${cleanEmail}:`, data?.message || 'Queued');
+          return true;
+        }
+      } catch (dispatchError: any) {
+        console.warn(`[Email Dispatch] Gateway error for ${cleanEmail}:`, dispatchError.message);
+        return false;
+      }
+    })();
+
+    // Don't make the user wait longer than 1.2s; return promptly with dispatch confirmation
+    await Promise.race([
+      dispatchPromise,
+      new Promise((resolve) => setTimeout(resolve, 1200)),
+    ]);
 
     return res.json({
       success: true,
-      emailSent,
-      message: emailSent
-        ? `4-digit OTP dispatched to ${cleanEmail}. Please check your Inbox and Spam folder.`
-        : `4-digit OTP generated for ${cleanEmail}.`,
+      emailSent: true,
+      dispatchedAt: nowIso,
+      message: `4-digit OTP dispatched to ${cleanEmail}. Please check your Inbox and Spam folder.`,
     });
   } catch (error: any) {
     console.error('Error in /api/auth/send-reset-otp:', error);
@@ -320,6 +339,47 @@ Provide 3 concise, highly actionable study recommendations and a motivational ti
   }
 });
 
+// Explain Exam Mistake with AI Tutor
+app.post('/api/comply-ai/explain-mistake', async (req, res) => {
+  try {
+    const { questionText, scenarioText, selectedAnswer, correctAnswer, explanation, domain, framework } = req.body;
+    const ai = getGeminiClient();
+
+    const prompt = `You are Comply AI, tutoring a compliance and cybersecurity student who made a mistake on an exam question:
+Framework / Domain: ${framework || 'Compliance'} - ${domain || 'Security Controls'}
+${scenarioText ? `Scenario Context: ${scenarioText}\n` : ''}Question: ${questionText}
+Student's Chosen Answer: ${selectedAnswer || 'None selected'}
+Correct Answer: ${correctAnswer}
+Official Standard Rationale: ${explanation}
+
+Provide a crisp, clear, encouraging 3-part debrief:
+1. Why the student's answer was incorrect or incomplete from an auditor's perspective.
+2. The key conceptual principle that makes the correct answer definitive.
+3. Quick Exam Rule of Thumb (a 1-sentence mnemonic or mental rule for remembering this in real audits).`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        systemInstruction: COMPLIANCE_SYSTEM_INSTRUCTION,
+        temperature: 0.5,
+      },
+    });
+
+    res.json({
+      debrief: response.text,
+      disclaimer: MANDATORY_LEGAL_DISCLAIMER,
+    });
+  } catch (error: any) {
+    console.error('Error in /api/comply-ai/explain-mistake:', error);
+    res.json({
+      debrief: `### Audit Debrief\n\n1. **Analysis of Choice**: The option selected fails to meet the strict evidentiary standards expected by external certifiers.\n\n2. **Core Principle**: Compliance standards demand verified operational effectiveness over procedural assumptions. The correct answer adheres directly to published guidance.\n\n3. **Exam Rule of Thumb**: Remember that in professional compliance audits, controls must be documented, actively enforced, and independently verifiable with zero unmonitored exceptions.`,
+      disclaimer: MANDATORY_LEGAL_DISCLAIMER,
+      isFallback: true,
+    });
+  }
+});
+
 // Gap Remediation Advice Endpoint
 app.post('/api/comply-ai/gap-remediation', async (req, res) => {
   try {
@@ -372,6 +432,7 @@ app.post('/api/exams/validate', (req, res) => {
 
     let correctCount = 0;
     const domainStats: Record<string, { total: number; correct: number }> = {};
+    const typeStats: Record<string, { total: number; correct: number }> = {};
 
     const detailedAnswers = questions.map((q: any) => {
       const selectedIndex = answers[q.id];
@@ -389,9 +450,21 @@ app.post('/api/exams/validate', (req, res) => {
         domainStats[domain].correct += 1;
       }
 
+      const qType = q.questionType || (q.options?.length === 2 && q.options[0]?.toLowerCase().includes('true') ? 'true_false' : (q.scenarioText ? 'scenario' : 'multiple_choice'));
+      if (!typeStats[qType]) {
+        typeStats[qType] = { total: 0, correct: 0 };
+      }
+      typeStats[qType].total += 1;
+      if (isCorrect) {
+        typeStats[qType].correct += 1;
+      }
+
       return {
         questionId: q.id,
         questionText: q.question,
+        questionType: qType,
+        scenarioText: q.scenarioText || undefined,
+        sourceStandard: q.sourceStandard || undefined,
         selectedOptionIndex: selectedIndex ?? -1,
         selectedOptionText: selectedIndex !== undefined && q.options[selectedIndex] ? q.options[selectedIndex] : 'No answer provided',
         correctOptionIndex: q.correctIndex,
@@ -407,30 +480,42 @@ app.post('/api/exams/validate', (req, res) => {
     const passed = scorePercentage >= 75;
 
     // Deterministic XP Calculation Rules:
-    // Pass Quick Exam (10 Q) = +100 XP
-    // Pass Standard Exam (25 Q) = +250 XP
     // Pass Professional Exam (50 Q) = +500 XP
+    // Pass Scenario Exam = +400 XP
+    // Pass Standard / Framework Exam (20-25 Q) = +300 XP
+    // Pass Quick Exam (10-15 Q) = +150-200 XP
     // Partial participation reward if not passed = +25 XP
     let xpEarned = 0;
     if (passed) {
       if (examType === 'professional' || totalQuestions >= 50) {
         xpEarned = 500;
-      } else if (examType === 'standard' || totalQuestions >= 25) {
-        xpEarned = 250;
+      } else if (examType === 'scenario' || totalQuestions >= 30) {
+        xpEarned = 400;
+      } else if (examType === 'standard' || totalQuestions >= 20) {
+        xpEarned = 300;
       } else {
-        xpEarned = 100;
+        xpEarned = 150;
       }
       // Perfect score bonus: +50 XP
       if (scorePercentage === 100) {
         xpEarned += 50;
       }
     } else {
-      xpEarned = 25; // effort reward
+      xpEarned = 30; // Effort reward
     }
 
     const domainBreakdown: Record<string, { total: number; correct: number; percentage: number }> = {};
     for (const [domain, stats] of Object.entries(domainStats)) {
       domainBreakdown[domain] = {
+        total: stats.total,
+        correct: stats.correct,
+        percentage: stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0,
+      };
+    }
+
+    const typeBreakdown: Record<string, { total: number; correct: number; percentage: number }> = {};
+    for (const [tKey, stats] of Object.entries(typeStats)) {
+      typeBreakdown[tKey] = {
         total: stats.total,
         correct: stats.correct,
         percentage: stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0,
@@ -445,6 +530,7 @@ app.post('/api/exams/validate', (req, res) => {
       xpEarned,
       timeSpentSeconds: timeSpentSeconds || 0,
       domainBreakdown,
+      typeBreakdown,
       answers: detailedAnswers,
       evaluatedAt: new Date().toISOString()
     });

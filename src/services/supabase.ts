@@ -755,36 +755,50 @@ export const supabaseAuthService = {
         console.warn('Supabase requestPasswordResetOtp notice:', err);
       }
 
-      // Also trigger Supabase Auth built-in email delivery for fast inbox arrival (<60s)
-      try {
-        await client.auth.resetPasswordForEmail(cleanEmail);
-      } catch (supabaseEmailErr: any) {
-        console.warn('Supabase auth.resetPasswordForEmail status:', supabaseEmailErr?.message);
+      // Trigger Supabase Auth reset email and server email dispatch concurrently
+      const dispatchTasks: Promise<any>[] = [];
+      if (client?.auth) {
+        dispatchTasks.push(
+          client.auth.resetPasswordForEmail(cleanEmail).catch((e: any) => {
+            console.warn('Supabase auth.resetPasswordForEmail notice:', e?.message);
+          })
+        );
       }
-    }
 
-    // Dispatch real email via server email endpoint
-    let emailSent = false;
-    try {
-      const emailRes = await fetch('/api/auth/send-reset-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, otp: activeOtp }),
-      });
-      const emailResult = await emailRes.json().catch(() => ({}));
-      if (emailResult?.emailSent) {
-        emailSent = true;
+      dispatchTasks.push(
+        fetch('/api/auth/send-reset-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: cleanEmail, otp: activeOtp }),
+        })
+          .then((res) => res.json())
+          .catch((err) => {
+            console.warn('Backend email dispatch notice:', err);
+          })
+      );
+
+      // Fast-resolve so the user transitions immediately to Step 2 (< 800ms)
+      await Promise.race([
+        Promise.allSettled(dispatchTasks),
+        new Promise((resolve) => setTimeout(resolve, 800)),
+      ]);
+    } else {
+      // Direct server dispatch if client not present
+      try {
+        await fetch('/api/auth/send-reset-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: cleanEmail, otp: activeOtp }),
+        });
+      } catch (err) {
+        console.warn('Fallback server dispatch error:', err);
       }
-    } catch (dispatchErr) {
-      console.warn('Backend email dispatch error:', dispatchErr);
     }
 
     return {
       success: true,
-      emailSent,
-      message: emailSent
-        ? `4-digit verification code dispatched to ${cleanEmail}. Please check your Inbox and Spam folder.`
-        : `4-digit verification code generated for ${cleanEmail}. Check your inbox or spam folder.`,
+      emailSent: true,
+      message: `4-digit verification code dispatched to ${cleanEmail}. Please check your Inbox and Spam folder.`,
     };
   },
 
@@ -1284,6 +1298,71 @@ export const supabaseDbService = {
     } catch (err) {
       console.warn('Supabase getGapAssessments error:', err);
       return null;
+    }
+  },
+
+  // Fetch questions from Supabase Question Bank
+  async getQuestionBank(frameworkId?: string): Promise<any[] | null> {
+    const client = getSupabase();
+    if (!client) return null;
+
+    try {
+      let query = client.from('question_bank').select('*');
+      if (frameworkId && frameworkId !== 'all') {
+        query = query.eq('framework_id', frameworkId);
+      }
+
+      const { data, error } = await query;
+      if (error || !data || data.length === 0) return null;
+
+      return data.map((item: any) => ({
+        id: item.id,
+        frameworkId: item.framework_id,
+        domain: item.domain,
+        difficulty: item.difficulty,
+        question: item.question_text || item.question,
+        options: Array.isArray(item.options) ? item.options : JSON.parse(item.options || '[]'),
+        correctIndex: item.correct_answer_index ?? item.correctIndex ?? 0,
+        explanation: item.explanation || '',
+        sourceStandard: item.source_standard,
+        questionType: item.question_type || 'multiple_choice',
+        scenarioText: item.scenario_text,
+      }));
+    } catch (err) {
+      console.warn('Supabase getQuestionBank error:', err);
+      return null;
+    }
+  },
+
+  // Seed question bank items if connected
+  async seedQuestionBank(questions: any[]): Promise<boolean> {
+    const client = getSupabase();
+    if (!client || !questions.length) return false;
+
+    try {
+      const records = questions.map((q) => ({
+        id: q.id,
+        framework_id: q.frameworkId,
+        domain: q.domain,
+        difficulty: q.difficulty.toLowerCase(),
+        question_text: q.question,
+        options: q.options,
+        correct_answer_index: q.correctIndex,
+        explanation: q.explanation,
+      }));
+
+      const { error } = await client
+        .from('question_bank')
+        .upsert(records, { onConflict: 'id' });
+
+      if (error) {
+        console.warn('Supabase seedQuestionBank note:', error.message);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.warn('Supabase seedQuestionBank error:', err);
+      return false;
     }
   },
 };

@@ -14,10 +14,19 @@ import {
   Play,
   Youtube,
   ExternalLink,
-  Lightbulb
+  Lightbulb,
+  Check,
+  Lock,
+  ChevronRight,
+  X,
+  Target,
+  FileCheck,
+  Flame,
+  GraduationCap
 } from 'lucide-react';
 import { useAuthAndData } from '../context/AuthAndDataContext';
 import { SUGGESTED_FRAMEWORK_VIDEOS } from '../data/videoResources';
+import { LearningPath, LearningPathLevel } from '../types';
 
 interface LearningLibraryPageProps {
   setCurrentTab: (tab: string) => void;
@@ -28,6 +37,7 @@ interface LearningLibraryPageProps {
 export const LearningLibraryPage: React.FC<LearningLibraryPageProps> = ({
   setCurrentTab,
   setSelectedFrameworkId,
+  setSelectedLessonId,
 }) => {
   const { frameworks, completedLessonIds, learningPaths, startExam, openAiModal } = useAuthAndData();
 
@@ -35,8 +45,13 @@ export const LearningLibraryPage: React.FC<LearningLibraryPageProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [videoFrameworkFilter, setVideoFrameworkFilter] = useState('All');
+  
+  // Learning Path Level Filter
+  const [selectedPathLevel, setSelectedPathLevel] = useState<string>('All');
+  const [selectedPathForModal, setSelectedPathForModal] = useState<LearningPath | null>(null);
+  const [pathModalTab, setPathModalTab] = useState<'overview' | 'curriculum'>('overview');
 
-  const categories = ['All', 'Cloud & SaaS', 'Security & Privacy', 'Governance & Risk', 'Healthcare', 'Financial & Payments'];
+  const categories = ['All', 'Cloud & SaaS', 'Security & Privacy', 'Cybersecurity', 'Governance & Risk', 'Financial & Payments'];
 
   const filteredFrameworks = frameworks.filter((f) => {
     const matchesSearch = f.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -56,6 +71,68 @@ export const LearningLibraryPage: React.FC<LearningLibraryPageProps> = ({
     return matchesSearch && matchesFramework;
   });
 
+  const filteredLearningPaths = learningPaths.filter((p) => {
+    const matchesLevel = selectedPathLevel === 'All' || p.level === selectedPathLevel;
+    const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.roleTarget.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesLevel && matchesSearch;
+  });
+
+  // Level badge styling helper
+  const getLevelBadge = (level?: LearningPathLevel | string) => {
+    switch (level) {
+      case 'Beginner':
+        return {
+          label: 'Level 1 — Beginner',
+          color: 'text-emerald-400 bg-emerald-500/15 border-emerald-500/30',
+          dotColor: 'bg-emerald-400'
+        };
+      case 'Intermediate':
+        return {
+          label: 'Level 2 — Intermediate',
+          color: 'text-sky-400 bg-sky-500/15 border-sky-500/30',
+          dotColor: 'bg-sky-400'
+        };
+      case 'Advanced':
+        return {
+          label: 'Level 3 — Advanced',
+          color: 'text-violet-400 bg-violet-500/15 border-violet-500/30',
+          dotColor: 'bg-violet-400'
+        };
+      case 'Expert':
+        return {
+          label: 'Level 4 — Expert',
+          color: 'text-amber-400 bg-amber-500/15 border-amber-500/30',
+          dotColor: 'bg-amber-400'
+        };
+      default:
+        return {
+          label: 'Core Pathway',
+          color: 'text-primary-light bg-primary/15 border-primary/30',
+          dotColor: 'bg-primary-light'
+        };
+    }
+  };
+
+  const handleLaunchModule = (frameworkId?: string, targetLessonId?: string) => {
+    if (selectedPathForModal) {
+      setSelectedPathForModal(null);
+    }
+    if (frameworkId) {
+      setSelectedFrameworkId(frameworkId);
+      if (targetLessonId && setSelectedLessonId) {
+        setSelectedLessonId(targetLessonId);
+        setCurrentTab('lesson');
+      } else {
+        setCurrentTab('framework-details');
+      }
+    } else {
+      setSelectedFrameworkId('iso27001');
+      setCurrentTab('framework-details');
+    }
+  };
+
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-300">
       
@@ -67,17 +144,18 @@ export const LearningLibraryPage: React.FC<LearningLibraryPageProps> = ({
               <BookOpen className="h-4 w-4" />
             </div>
             <h1 className="font-heading text-2xl sm:text-3xl font-extrabold text-text-primary">
-              Framework Curriculum & Learning Library
+              Curriculum & Learning Architecture
             </h1>
           </div>
           <p className="text-xs sm:text-sm text-text-muted mt-1">
-            Explore interactive lessons, YouTube video suggestions, case studies, and controls for the world's most critical compliance standards.
+            Master enterprise Cybersecurity, GRC, Risk Management, and Security Frameworks through structured 4-level learning paths and deep-dive standards.
           </p>
         </div>
 
         {/* View Switcher Tabs */}
         <div className="flex rounded-2xl bg-white/[0.04] p-1 border border-white/10 shrink-0 self-start md:self-auto backdrop-blur-md">
           <button
+            id="tab-view-frameworks"
             onClick={() => setActiveView('frameworks')}
             className={`rounded-xl px-4 py-1.5 text-xs font-bold transition-all ${
               activeView === 'frameworks'
@@ -85,9 +163,10 @@ export const LearningLibraryPage: React.FC<LearningLibraryPageProps> = ({
                 : 'text-text-secondary hover:text-text-primary'
             }`}
           >
-            Frameworks ({frameworks.length})
+            Framework Explorer ({frameworks.length})
           </button>
           <button
+            id="tab-view-paths"
             onClick={() => setActiveView('paths')}
             className={`rounded-xl px-4 py-1.5 text-xs font-bold transition-all ${
               activeView === 'paths'
@@ -98,6 +177,7 @@ export const LearningLibraryPage: React.FC<LearningLibraryPageProps> = ({
             Learning Paths ({learningPaths.length})
           </button>
           <button
+            id="tab-view-videos"
             onClick={() => setActiveView('videos')}
             className={`rounded-xl px-4 py-1.5 text-xs font-bold transition-all flex items-center gap-1.5 ${
               activeView === 'videos'
@@ -111,7 +191,9 @@ export const LearningLibraryPage: React.FC<LearningLibraryPageProps> = ({
         </div>
       </div>
 
-      {/* View 1: Frameworks Catalog */}
+      {/* =========================================================================
+          VIEW 1: FRAMEWORKS EXPLORER
+      ========================================================================= */}
       {activeView === 'frameworks' && (
         <div className="space-y-6">
           
@@ -120,10 +202,11 @@ export const LearningLibraryPage: React.FC<LearningLibraryPageProps> = ({
             <div className="relative flex-1">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
               <input
+                id="search-frameworks"
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search frameworks (e.g., SOC 2, Annex A, NIST, HIPAA, PCI)..."
+                placeholder="Search standards (e.g., ISO 27001, NIST CSF, SOC 2, CIS Controls, GDPR, PCI DSS)..."
                 className="w-full rounded-2xl border border-white/10 bg-white/[0.04] pl-10 pr-4 py-2.5 text-xs text-text-primary placeholder:text-text-muted focus:border-primary-light focus:outline-none backdrop-blur-md shadow-inner"
               />
             </div>
@@ -158,6 +241,7 @@ export const LearningLibraryPage: React.FC<LearningLibraryPageProps> = ({
                 return (
                   <div
                     key={f.id}
+                    id={`framework-card-${f.id}`}
                     className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 flex flex-col justify-between hover:border-primary-light/40 hover:bg-white/[0.07] hover:shadow-2xl hover:shadow-primary/10 transition-all group backdrop-blur-xl"
                   >
                     <div className="space-y-4">
@@ -188,7 +272,7 @@ export const LearningLibraryPage: React.FC<LearningLibraryPageProps> = ({
                         </span>
                         <span className="rounded-lg bg-rose-500/10 px-2.5 py-0.5 border border-rose-500/20 text-rose-300 font-semibold flex items-center gap-1 backdrop-blur-sm">
                           <Youtube className="h-3 w-3" />
-                          {videoCount} Video Guides
+                          {videoCount} Videos
                         </span>
                         <span className="rounded-lg bg-white/5 px-2.5 py-0.5 border border-white/10 text-primary-light font-mono font-semibold backdrop-blur-sm">
                           +{f.xpReward} XP
@@ -215,13 +299,14 @@ export const LearningLibraryPage: React.FC<LearningLibraryPageProps> = ({
 
                       <div className="flex items-center gap-2 pt-1">
                         <button
+                          id={`btn-study-${f.id}`}
                           onClick={() => {
                             setSelectedFrameworkId(f.id);
                             setCurrentTab('framework-details');
                           }}
                           className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-primary py-2.5 text-xs font-bold text-white hover:bg-primary-dark transition-all shadow-md shadow-primary/20 border border-white/15"
                         >
-                          <span>Study Framework</span>
+                          <span>Explore Deep Dive</span>
                           <ArrowRight className="h-3.5 w-3.5" />
                         </button>
 
@@ -249,7 +334,7 @@ export const LearningLibraryPage: React.FC<LearningLibraryPageProps> = ({
               </div>
               <h3 className="text-base font-bold text-text-primary">No Matching Frameworks Found</h3>
               <p className="text-xs text-text-muted mt-1 max-w-sm mx-auto">
-                No compliance standards matched your search query "{searchQuery}". Try clearing filters or searching for terms like "Access Control", "SOC 2", or "NIST".
+                No standards matched your search "{searchQuery}". Try clearing filters or searching for terms like "ISO 27001", "SOC 2", or "NIST CSF".
               </p>
               <button
                 onClick={() => {
@@ -266,84 +351,205 @@ export const LearningLibraryPage: React.FC<LearningLibraryPageProps> = ({
         </div>
       )}
 
-      {/* View 2: Role Learning Paths */}
+      {/* =========================================================================
+          VIEW 2: STRUCTURED 4-LEVEL LEARNING PATHS
+      ========================================================================= */}
       {activeView === 'paths' && (
         <div className="space-y-6 animate-in fade-in">
+          
+          {/* Header Banner */}
           <div className="rounded-3xl border border-white/15 bg-gradient-to-r from-primary/25 via-white/[0.04] to-black/40 p-6 backdrop-blur-2xl shadow-xl">
-            <div className="flex items-center gap-2 mb-2">
-              <Compass className="h-5 w-5 text-primary-light" />
-              <h3 className="font-heading text-base font-bold text-text-primary">
-                Structured Career Pathways
-              </h3>
-            </div>
-            <p className="text-xs text-text-secondary max-w-2xl">
-              Curated multi-framework learning tracks engineered for specific cybersecurity career roles and enterprise business milestones.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {learningPaths.map((path) => (
-              <div
-                key={path.id}
-                className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 flex flex-col justify-between hover:border-primary-light/40 hover:bg-white/[0.07] transition-all backdrop-blur-xl shadow-lg"
-              >
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="rounded-full bg-primary/20 border border-primary/30 px-2.5 py-0.5 text-[10px] font-bold text-primary-light uppercase backdrop-blur-sm">
-                      {path.estimatedWeeks} Weeks Sprint
-                    </span>
-                    <span className="text-xs font-semibold text-text-muted">
-                      {path.modulesIncluded.length} Modules
-                    </span>
-                  </div>
-
-                  <div>
-                    <h3 className="font-heading text-base font-bold text-text-primary">
-                      {path.title}
-                    </h3>
-                    <p className="text-xs text-primary-light font-medium mt-0.5">
-                      Target: {path.roleTarget}
-                    </p>
-                    <p className="text-xs text-text-secondary mt-2 leading-relaxed">
-                      {path.description}
-                    </p>
-                  </div>
-
-                  <div className="space-y-2 pt-2">
-                    <h5 className="text-[11px] font-bold uppercase tracking-wider text-text-muted">
-                      Key Sprint Milestones:
-                    </h5>
-                    <ul className="space-y-1.5 text-xs text-text-secondary">
-                      {path.milestones.map((m, idx) => (
-                        <li key={idx} className="flex items-start gap-2">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                          <span className="leading-tight">{m}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Compass className="h-5 w-5 text-primary-light" />
+                  <h3 className="font-heading text-lg font-bold text-text-primary">
+                    Structured Enterprise Learning Paths
+                  </h3>
                 </div>
-
-                <div className="mt-6 pt-4 border-t border-white/10">
-                  <button
-                    onClick={() => {
-                      const firstModule = path.modulesIncluded[0];
-                      setSelectedFrameworkId(firstModule.frameworkId);
-                      setCurrentTab('framework-details');
-                    }}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-xs font-bold text-white hover:bg-primary-dark transition-all shadow-md shadow-primary/20 border border-white/15"
-                  >
-                    <span>Start Learning Track</span>
-                    <ArrowRight className="h-4 w-4" />
-                  </button>
-                </div>
+                <p className="text-xs text-text-secondary max-w-2xl leading-relaxed">
+                  Engineered curriculum spanning 4 sequential proficiency tiers: from foundational threat modeling and compliance lifecycles up to high-stakes incident command and executive GRC board strategy.
+                </p>
               </div>
-            ))}
+
+              <div className="flex items-center gap-2 text-xs font-mono text-text-muted bg-white/5 px-4 py-2 rounded-2xl border border-white/10 shrink-0">
+                <Flame className="h-4 w-4 text-amber-400" />
+                <span>19 Paths Available</span>
+              </div>
+            </div>
           </div>
+
+          {/* Level Filter Tabs Bar & Search */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
+              <input
+                id="search-learning-paths"
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search learning paths by topic or target job role..."
+                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] pl-10 pr-4 py-2.5 text-xs text-text-primary placeholder:text-text-muted focus:border-primary-light focus:outline-none backdrop-blur-md"
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
+              {[
+                { id: 'All', label: 'All Levels (19)' },
+                { id: 'Beginner', label: 'Level 1 — Beginner (4)' },
+                { id: 'Intermediate', label: 'Level 2 — Intermediate (5)' },
+                { id: 'Advanced', label: 'Level 3 — Advanced (5)' },
+                { id: 'Expert', label: 'Level 4 — Expert (5)' }
+              ].map((lvl) => (
+                <button
+                  key={lvl.id}
+                  id={`filter-level-${lvl.id}`}
+                  onClick={() => setSelectedPathLevel(lvl.id)}
+                  className={`rounded-xl px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all backdrop-blur-md ${
+                    selectedPathLevel === lvl.id
+                      ? 'bg-primary text-white font-bold shadow-md shadow-primary/20 border border-white/15'
+                      : 'bg-white/[0.04] text-text-secondary border border-white/10 hover:bg-white/[0.08] hover:text-text-primary'
+                  }`}
+                >
+                  {lvl.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Learning Paths Grid */}
+          {filteredLearningPaths.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredLearningPaths.map((path) => {
+                const badge = getLevelBadge(path.level);
+                const pct = path.progressPercentage || 0;
+                const hours = path.estimatedHours || 6;
+                const modules = path.modulesCount || path.curriculumModules?.length || 5;
+
+                return (
+                  <div
+                    key={path.id}
+                    id={`path-card-${path.id}`}
+                    className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 flex flex-col justify-between hover:border-primary-light/40 hover:bg-white/[0.07] hover:shadow-2xl hover:shadow-primary/10 transition-all backdrop-blur-xl group"
+                  >
+                    <div className="space-y-4">
+                      {/* Badge & Timing */}
+                      <div className="flex items-center justify-between">
+                        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider border flex items-center gap-1.5 ${badge.color}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${badge.dotColor}`} />
+                          {badge.label}
+                        </span>
+
+                        <div className="flex items-center gap-1 text-xs text-text-muted font-mono">
+                          <Clock className="h-3 w-3" />
+                          <span>{path.estimatedTime || `${hours} Hours`}</span>
+                        </div>
+                      </div>
+
+                      {/* Title & Role */}
+                      <div>
+                        <h3 className="font-heading text-lg font-bold text-text-primary group-hover:text-primary-light transition-colors">
+                          {path.title}
+                        </h3>
+                        <p className="text-xs text-primary-light font-medium mt-0.5">
+                          Target: {path.roleTarget}
+                        </p>
+                        <p className="text-xs text-text-secondary mt-2 leading-relaxed line-clamp-3">
+                          {path.description}
+                        </p>
+                      </div>
+
+                      {/* Milestones Preview */}
+                      {path.milestones && path.milestones.length > 0 && (
+                        <div className="space-y-1.5 pt-1">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted block">
+                            Key Milestones ({path.milestones.length}):
+                          </span>
+                          <div className="space-y-1">
+                            {path.milestones.slice(0, 2).map((m, idx) => (
+                              <div key={idx} className="flex items-start gap-1.5 text-xs text-text-secondary">
+                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                                <span className="line-clamp-1">{m}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Progress bar */}
+                      <div className="pt-2">
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="text-text-muted">{modules} Modules</span>
+                          <span className="font-mono font-bold text-text-primary">{pct}% Complete</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-black/40 border border-white/5 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-primary to-accent-light rounded-full transition-all duration-500"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="mt-6 pt-4 border-t border-white/10 flex items-center gap-2">
+                      <button
+                        id={`btn-overview-${path.id}`}
+                        onClick={() => {
+                          setSelectedPathForModal(path);
+                          setPathModalTab('overview');
+                        }}
+                        className="flex-1 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 py-2.5 text-xs font-semibold text-text-secondary hover:text-text-primary transition-all flex items-center justify-center gap-1.5 backdrop-blur-sm"
+                      >
+                        <Layers className="h-3.5 w-3.5 text-primary-light" />
+                        <span>Curriculum</span>
+                      </button>
+
+                      <button
+                        id={`btn-start-${path.id}`}
+                        onClick={() => {
+                          const firstMod = path.curriculumModules?.[0];
+                          const targetFw = firstMod?.frameworkId || path.modulesIncluded?.[0]?.frameworkId || 'iso27001';
+                          const targetLesson = firstMod?.targetLessonId;
+                          handleLaunchModule(targetFw, targetLesson);
+                        }}
+                        className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-primary py-2.5 text-xs font-bold text-white hover:bg-primary-dark transition-all shadow-md shadow-primary/20 border border-white/15"
+                      >
+                        <span>{pct > 0 ? 'Continue' : 'Start Path'}</span>
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-12 text-center backdrop-blur-xl">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-text-muted mx-auto mb-3">
+                <Compass className="h-6 w-6" />
+              </div>
+              <h3 className="text-base font-bold text-text-primary">No Learning Paths Found</h3>
+              <p className="text-xs text-text-muted mt-1 max-w-sm mx-auto">
+                No learning pathways matched your level selection or search query "{searchQuery}".
+              </p>
+              <button
+                onClick={() => {
+                  setSelectedPathLevel('All');
+                  setSearchQuery('');
+                }}
+                className="mt-4 rounded-xl bg-white/10 px-4 py-2 text-xs font-bold text-text-primary hover:bg-white/20 transition-all border border-white/15"
+              >
+                Show All Learning Paths
+              </button>
+            </div>
+          )}
+
         </div>
       )}
 
-      {/* View 3: Suggested YouTube Video Guides Catalog */}
+      {/* =========================================================================
+          VIEW 3: SUGGESTED YOUTUBE VIDEO GUIDES CATALOG
+      ========================================================================= */}
       {activeView === 'videos' && (
         <div className="space-y-6 animate-in fade-in">
           
@@ -388,13 +594,13 @@ export const LearningLibraryPage: React.FC<LearningLibraryPageProps> = ({
 
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
               {[
-                { id: 'All', label: 'All Frameworks' },
-                { id: 'soc2', label: 'SOC 2' },
+                { id: 'All', label: 'All Standards' },
                 { id: 'iso27001', label: 'ISO 27001' },
-                { id: 'nist', label: 'NIST CSF' },
-                { id: 'hipaa', label: 'HIPAA' },
-                { id: 'pci', label: 'PCI-DSS' },
+                { id: 'nistcsf', label: 'NIST CSF' },
+                { id: 'soc2', label: 'SOC 2' },
                 { id: 'gdpr', label: 'GDPR' },
+                { id: 'pcidss', label: 'PCI DSS' },
+                { id: 'cis-controls', label: 'CIS Controls' },
               ].map((fw) => (
                 <button
                   key={fw.id}
@@ -448,34 +654,25 @@ export const LearningLibraryPage: React.FC<LearningLibraryPageProps> = ({
                       <div className="rounded-2xl border border-primary/20 bg-primary/10 p-3 text-xs flex items-start gap-2">
                         <Lightbulb className="h-4 w-4 text-primary-light shrink-0 mt-0.5" />
                         <p className="text-[11px] text-text-secondary line-clamp-2">
-                          <strong className="text-primary-light">Auditor Tip: </strong>
-                          {vid.auditorTakeaway}
+                          <strong>Key Takeaway:</strong> {vid.auditorTakeaway || vid.description}
                         </p>
                       </div>
                     </div>
 
-                    <div className="mt-6 pt-4 border-t border-white/10 flex items-center gap-2">
+                    <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
+                      <span className="text-xs text-text-muted font-medium">
+                        By {vid.channel}
+                      </span>
+                      
                       <a
                         href={vid.youtubeUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 py-2.5 text-xs font-bold text-white transition-all shadow-md shadow-rose-600/20 border border-white/15"
+                        className="flex items-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 px-3 py-1.5 text-xs font-bold text-white transition-all shadow-md shadow-rose-600/20"
                       >
-                        <Youtube className="h-4 w-4" />
-                        <span>Watch Video</span>
-                        <ExternalLink className="h-3 w-3" />
+                        <Play className="h-3 w-3 fill-current" />
+                        <span>Watch Guide</span>
                       </a>
-
-                      <button
-                        onClick={() => {
-                          setSelectedFrameworkId(vid.frameworkId);
-                          setCurrentTab('framework-details');
-                        }}
-                        className="px-3 py-2.5 rounded-xl border border-white/10 bg-white/5 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-white/10 transition-all backdrop-blur-sm"
-                        title="View Framework"
-                      >
-                        <span>Details</span>
-                      </button>
                     </div>
                   </div>
                 );
@@ -484,24 +681,266 @@ export const LearningLibraryPage: React.FC<LearningLibraryPageProps> = ({
           ) : (
             <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-12 text-center backdrop-blur-xl">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-text-muted mx-auto mb-3">
-                <Youtube className="h-6 w-6 text-rose-400" />
+                <Youtube className="h-6 w-6 text-rose-500" />
               </div>
-              <h3 className="text-base font-bold text-text-primary">No Matching Video Guides Found</h3>
+              <h3 className="text-base font-bold text-text-primary">No Matching Video Guides</h3>
               <p className="text-xs text-text-muted mt-1 max-w-sm mx-auto">
-                No video masterclasses matched your search criteria. Try switching the framework filter or clearing the search bar.
+                No videos matched your filter criteria. Try clearing search filters to see all video suggestions.
               </p>
-              <button
-                onClick={() => {
-                  setSearchQuery('');
-                  setVideoFrameworkFilter('All');
-                }}
-                className="mt-4 rounded-xl bg-white/10 px-4 py-2 text-xs font-bold text-text-primary hover:bg-white/20 transition-all border border-white/15"
-              >
-                Reset Video Filters
-              </button>
             </div>
           )}
 
+        </div>
+      )}
+
+      {/* =========================================================================
+          INTERACTIVE LEARNING PATH OVERVIEW & CURRICULUM MODAL
+      ========================================================================= */}
+      {selectedPathForModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
+          <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl border border-white/15 bg-[#12080C] p-6 sm:p-8 shadow-2xl space-y-6">
+            
+            {/* Close Button */}
+            <button
+              id="btn-close-path-modal"
+              onClick={() => setSelectedPathForModal(null)}
+              className="absolute top-5 right-5 h-8 w-8 rounded-full bg-white/10 flex items-center justify-center text-text-muted hover:text-white hover:bg-white/20 transition-all border border-white/10"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            {/* Modal Header */}
+            <div className="space-y-3 pr-10">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider border ${getLevelBadge(selectedPathForModal.level).color}`}>
+                  {getLevelBadge(selectedPathForModal.level).label}
+                </span>
+                <span className="rounded-full bg-white/5 px-2.5 py-0.5 text-[11px] text-text-muted border border-white/10">
+                  {selectedPathForModal.estimatedTime || `${selectedPathForModal.estimatedHours} Hours`}
+                </span>
+                <span className="rounded-full bg-primary/20 px-2.5 py-0.5 text-[11px] text-primary-light border border-primary/30 font-medium">
+                  {selectedPathForModal.modulesCount || selectedPathForModal.curriculumModules?.length || 5} Modules
+                </span>
+              </div>
+
+              <h2 className="font-heading text-2xl font-extrabold text-text-primary">
+                {selectedPathForModal.title}
+              </h2>
+
+              <p className="text-xs text-primary-light font-medium">
+                Target Role: {selectedPathForModal.roleTarget}
+              </p>
+
+              <p className="text-xs text-text-secondary leading-relaxed">
+                {selectedPathForModal.description}
+              </p>
+            </div>
+
+            {/* Tab Navigation in Modal */}
+            <div className="flex border-b border-white/10 gap-1">
+              <button
+                id="btn-path-modal-tab-overview"
+                onClick={() => setPathModalTab('overview')}
+                className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+                  pathModalTab === 'overview'
+                    ? 'border-primary-light text-primary-light bg-white/[0.03]'
+                    : 'border-transparent text-text-muted hover:text-text-primary'
+                }`}
+              >
+                <Target className="h-3.5 w-3.5" />
+                <span>Overview & Objectives</span>
+              </button>
+
+              <button
+                id="btn-path-modal-tab-curriculum"
+                onClick={() => setPathModalTab('curriculum')}
+                className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+                  pathModalTab === 'curriculum'
+                    ? 'border-primary-light text-primary-light bg-white/[0.03]'
+                    : 'border-transparent text-text-muted hover:text-text-primary'
+                }`}
+              >
+                <GraduationCap className="h-3.5 w-3.5" />
+                <span>Curriculum Modules ({selectedPathForModal.curriculumModules?.length || 5})</span>
+              </button>
+            </div>
+
+            {/* Modal Body: Overview */}
+            {pathModalTab === 'overview' && (
+              <div className="space-y-6 animate-in fade-in">
+                {/* Why It Matters Callout */}
+                {selectedPathForModal.overview?.whyItMatters && (
+                  <div className="rounded-2xl border border-primary/30 bg-primary/10 p-4 space-y-1 backdrop-blur-sm">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary-light flex items-center gap-1">
+                      <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                      Why This Learning Path Matters:
+                    </span>
+                    <p className="text-xs text-text-secondary leading-relaxed">
+                      {selectedPathForModal.overview.whyItMatters}
+                    </p>
+                  </div>
+                )}
+
+                {/* What You Will Learn */}
+                {selectedPathForModal.overview?.whatYouWillLearn && (
+                  <div className="space-y-2.5">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-text-primary flex items-center gap-1.5">
+                      <FileCheck className="h-4 w-4 text-emerald-400" />
+                      What You Will Learn:
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {selectedPathForModal.overview.whatYouWillLearn.map((item, idx) => (
+                        <div
+                          key={idx}
+                          className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-xs text-text-secondary flex items-start gap-2 backdrop-blur-sm"
+                        >
+                          <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                          <span className="leading-snug">{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Learning Objectives */}
+                {selectedPathForModal.overview?.learningObjectives && (
+                  <div className="space-y-2.5">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-text-primary flex items-center gap-1.5">
+                      <Target className="h-4 w-4 text-sky-400" />
+                      Measurable Learning Objectives:
+                    </h4>
+                    <ul className="space-y-2 text-xs text-text-secondary">
+                      {selectedPathForModal.overview.learningObjectives.map((obj, idx) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary-light text-[10px] font-bold mt-0.5">
+                            {idx + 1}
+                          </span>
+                          <span className="leading-relaxed">{obj}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Modal Body: Curriculum Modules */}
+            {pathModalTab === 'curriculum' && (
+              <div className="space-y-3 animate-in fade-in">
+                {selectedPathForModal.curriculumModules && selectedPathForModal.curriculumModules.length > 0 ? (
+                  selectedPathForModal.curriculumModules.map((mod, idx) => {
+                    const isCompleted = mod.status === 'completed';
+                    const isCurrent = mod.status === 'current';
+                    const isLocked = mod.status === 'locked';
+
+                    return (
+                      <div
+                        key={mod.id}
+                        className={`rounded-2xl border p-4 transition-all ${
+                          isCurrent
+                            ? 'border-primary-light/50 bg-primary/10 shadow-lg'
+                            : isCompleted
+                            ? 'border-emerald-500/30 bg-emerald-500/5'
+                            : 'border-white/10 bg-white/[0.03]'
+                        }`}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-mono font-bold text-primary-light uppercase">
+                                Module {mod.order || idx + 1}
+                              </span>
+                              {isCompleted && (
+                                <span className="rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2 py-0.5 border border-emerald-500/30 flex items-center gap-1">
+                                  <CheckCircle2 className="h-2.5 w-2.5" /> Completed
+                                </span>
+                              )}
+                              {isCurrent && (
+                                <span className="rounded-full bg-primary/30 text-primary-light text-[10px] font-bold px-2 py-0.5 border border-primary/50">
+                                  In Progress
+                                </span>
+                              )}
+                            </div>
+
+                            <h5 className="text-sm font-bold text-text-primary">
+                              {mod.title}
+                            </h5>
+
+                            <p className="text-xs text-text-secondary leading-relaxed">
+                              {mod.description}
+                            </p>
+
+                            <div className="flex items-center gap-3 text-[11px] text-text-muted pt-1">
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                <span>{mod.durationMinutes} Mins</span>
+                              </span>
+                              <span>•</span>
+                              <span>{mod.lessonsCount} Lessons</span>
+                            </div>
+                          </div>
+
+                          <div className="shrink-0 self-start sm:self-auto">
+                            {isLocked ? (
+                              <span className="flex items-center gap-1 text-xs text-text-muted bg-white/5 px-3 py-1.5 rounded-xl border border-white/10">
+                                <Lock className="h-3 w-3" /> Locked
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleLaunchModule(mod.frameworkId, mod.targetLessonId)}
+                                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
+                                  isCurrent
+                                    ? 'bg-primary text-white shadow-md shadow-primary/20 hover:bg-primary-dark border border-white/15'
+                                    : 'bg-white/10 text-text-primary hover:bg-white/20 border border-white/15'
+                                }`}
+                              >
+                                <span>{isCompleted ? 'Review' : 'Launch'}</span>
+                                <ArrowRight className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-xs text-text-muted py-6 text-center">
+                    Curriculum modules are being initialized.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Modal Bottom Footer Actions */}
+            <div className="pt-4 border-t border-white/10 flex items-center justify-between">
+              <span className="text-xs text-text-muted font-mono">
+                {selectedPathForModal.progressPercentage || 0}% Progress
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSelectedPathForModal(null)}
+                  className="rounded-xl px-4 py-2 text-xs font-semibold text-text-secondary hover:text-white transition-colors"
+                >
+                  Close
+                </button>
+
+                <button
+                  onClick={() => {
+                    const firstMod = selectedPathForModal.curriculumModules?.[0];
+                    const targetFw = firstMod?.frameworkId || selectedPathForModal.modulesIncluded?.[0]?.frameworkId || 'iso27001';
+                    const targetLesson = firstMod?.targetLessonId;
+                    handleLaunchModule(targetFw, targetLesson);
+                  }}
+                  className="rounded-xl bg-primary px-5 py-2 text-xs font-bold text-white hover:bg-primary-dark transition-all shadow-md shadow-primary/20 border border-white/15 flex items-center gap-1.5"
+                >
+                  <span>Start Learning Track</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+
+          </div>
         </div>
       )}
 

@@ -11,6 +11,7 @@ import { MobileHeader } from './components/layout/MobileHeader';
 import { Footer } from './components/layout/Footer';
 import { ComplyAIAssistantModal } from './components/modals/ComplyAIAssistantModal';
 import { BadgeUnlockedModal } from './components/modals/BadgeUnlockedModal';
+import { GamificationToasts } from './components/modals/GamificationToasts';
 import { AuthPromptModal } from './components/modals/AuthPromptModal';
 
 // Pages
@@ -233,9 +234,10 @@ const MainAppContent: React.FC = () => {
         {!isExamActive && !isAuthView && <Footer setCurrentTab={setCurrentTab} />}
       </div>
 
-      {/* Global Modals */}
+      {/* Global Modals & Notifications */}
       <ComplyAIAssistantModal />
       <BadgeUnlockedModal />
+      <GamificationToasts />
       <AuthPromptModal onNavigate={setCurrentTab} onSelectFramework={setSelectedFrameworkId} />
     </div>
   );

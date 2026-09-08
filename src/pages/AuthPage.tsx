@@ -20,6 +20,7 @@ import {
   AlertCircle,
   Clock,
   ArrowLeft,
+  ExternalLink,
 } from 'lucide-react';
 import { useAuthAndData } from '../context/AuthAndDataContext';
 import { UserRole } from '../types';
@@ -75,6 +76,56 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [otpExpiryTimer, setOtpExpiryTimer] = useState<number>(900); // 15 mins in seconds
   const [forgotSuccessMsg, setForgotSuccessMsg] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState<number>(0);
+
+  const otpInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Auto-focus OTP input as soon as verify step opens
+  useEffect(() => {
+    if (forgotStep === 'verify') {
+      const timer = setTimeout(() => {
+        otpInputRef.current?.focus();
+      }, 120);
+      return () => clearTimeout(timer);
+    }
+  }, [forgotStep]);
+
+  // Responsible email client launcher helper
+  const getEmailClientInfo = (email: string) => {
+    const domain = (email.split('@')[1] || '').toLowerCase();
+    if (domain.includes('gmail') || domain.includes('googlemail')) {
+      return {
+        name: 'Open Gmail Inbox',
+        url: 'https://mail.google.com/mail/u/0/#search/ComplianceVerse',
+        label: 'Gmail',
+      };
+    }
+    if (domain.includes('outlook') || domain.includes('hotmail') || domain.includes('live') || domain.includes('msn')) {
+      return {
+        name: 'Open Outlook Inbox',
+        url: 'https://outlook.live.com/mail/0/inbox',
+        label: 'Outlook',
+      };
+    }
+    if (domain.includes('yahoo') || domain.includes('ymail')) {
+      return {
+        name: 'Open Yahoo Mail',
+        url: 'https://mail.yahoo.com',
+        label: 'Yahoo',
+      };
+    }
+    if (domain.includes('icloud') || domain.includes('me.com')) {
+      return {
+        name: 'Open iCloud Mail',
+        url: 'https://www.icloud.com/mail',
+        label: 'iCloud',
+      };
+    }
+    return {
+      name: 'Open Mail Client',
+      url: `mailto:${email}`,
+      label: 'Mailbox',
+    };
+  };
 
   const [formError, setFormError] = useState<string | null>(null);
   const [showSchemaModal, setShowSchemaModal] = useState(false);
@@ -758,17 +809,17 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     type="submit"
                     id="request-otp-btn"
                     disabled={isLoading}
-                    className="w-full flex items-center justify-center gap-2 rounded-2xl bg-primary py-3 text-xs font-bold text-white hover:bg-primary-dark transition-all shadow-lg shadow-primary/25 border border-white/15 disabled:opacity-50"
+                    className="w-full flex items-center justify-center gap-2 rounded-2xl bg-primary py-3 text-xs font-bold text-white hover:bg-primary-dark transition-all shadow-lg shadow-primary/25 border border-white/15 disabled:opacity-50 cursor-pointer"
                   >
                     {isLoading ? (
                       <>
                         <RefreshCw className="h-4 w-4 animate-spin" />
-                        <span>Sending Reset OTP to Email...</span>
+                        <span>Dispatching Security Code...</span>
                       </>
                     ) : (
                       <>
                         <Mail className="h-4 w-4" />
-                        <span>Send OTP to Email</span>
+                        <span>Send 4-Digit Security Code</span>
                         <ArrowRight className="h-4 w-4" />
                       </>
                     )}
@@ -781,7 +832,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                         setActiveTab('login');
                         setFormError(null);
                       }}
-                      className="text-xs text-text-muted hover:text-text-primary inline-flex items-center gap-1.5"
+                      className="text-xs text-text-muted hover:text-text-primary inline-flex items-center gap-1.5 cursor-pointer"
                     >
                       <ArrowLeft className="h-3 w-3" />
                       <span>Remembered your password? Back to Login</span>
@@ -791,92 +842,129 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               )}
 
               {/* Step 2: Verify OTP */}
-              {forgotStep === 'verify' && (
-                <form onSubmit={handleVerifyOtp} className="space-y-4">
-                  <div className="rounded-2xl border border-sky-500/30 bg-sky-500/10 p-3.5 flex items-start gap-3 backdrop-blur-sm">
-                    <Mail className="h-5 w-5 text-sky-400 shrink-0 mt-0.5" />
-                    <div className="text-xs space-y-1.5 w-full">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <p className="font-bold text-text-primary">
-                            4-Digit OTP Dispatched
-                          </p>
-                          <span className="rounded-md bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300 border border-emerald-500/30">
-                            Sent to Email
+              {forgotStep === 'verify' && (() => {
+                const clientInfo = getEmailClientInfo(forgotEmail);
+                return (
+                  <form onSubmit={handleVerifyOtp} className="space-y-4">
+                    <div className="rounded-2xl border border-sky-500/30 bg-sky-500/10 p-3.5 flex items-start gap-3 backdrop-blur-sm">
+                      <Mail className="h-5 w-5 text-sky-400 shrink-0 mt-0.5" />
+                      <div className="text-xs space-y-2 w-full">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <p className="font-bold text-text-primary">
+                              Security OTP Dispatched
+                            </p>
+                            <span className="rounded-md bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                              Delivered to Inbox
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-sky-300 font-mono bg-sky-500/20 px-2 py-0.5 rounded-full border border-sky-500/30 flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {formatTimer(otpExpiryTimer)}
                           </span>
                         </div>
-                        <span className="text-[10px] text-sky-300 font-mono bg-sky-500/20 px-2 py-0.5 rounded-full border border-sky-500/30">
-                          {formatTimer(otpExpiryTimer)}
-                        </span>
+
+                        <p className="text-text-secondary text-[11px] leading-relaxed">
+                          We dispatched your 4-digit code to <strong className="text-text-primary underline">{forgotEmail}</strong>.
+                        </p>
+
+                        {/* Quick 1-Click Mailbox Shortcut */}
+                        <div className="pt-0.5 flex items-center gap-2">
+                          <a
+                            href={clientInfo.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            id="quick-open-mail-btn"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold bg-white/10 hover:bg-white/20 text-text-primary border border-white/15 transition-all shadow-sm cursor-pointer"
+                          >
+                            <Mail className="h-3.5 w-3.5 text-primary-light" />
+                            <span>{clientInfo.name}</span>
+                            <ExternalLink className="h-3 w-3 text-text-muted" />
+                          </a>
+                        </div>
+
+                        {/* Responsible Security & Delivery Notes */}
+                        <div className="rounded-xl border border-white/10 bg-black/25 p-2.5 space-y-1 text-[11px] text-text-muted">
+                          <div className="flex items-center gap-1.5 text-text-secondary font-medium">
+                            <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                            <span>Sender: <em>ComplianceVerse Security (<span className="text-text-primary">no-reply@complianceverse.app</span>)</em></span>
+                          </div>
+                          <p className="text-[10.5px] leading-relaxed">
+                            Check your <strong>Primary Inbox</strong>, <strong>Updates tab</strong>, and <strong>Spam / Junk</strong> folder.
+                          </p>
+                          <p className="text-[10px] text-text-muted/70 italic">
+                            * ComplianceVerse will never call or message you asking for your verification code.
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-text-secondary text-[11px] leading-relaxed">
-                        We dispatched your 4-digit code to <strong className="text-text-primary underline">{forgotEmail}</strong>. Please check your inbox and <strong>Spam / Junk</strong> folder (Sender: <em>ComplianceVerse / Supabase</em>).
-                      </p>
                     </div>
-                  </div>
 
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-xs font-semibold text-text-secondary">
-                        4-Digit OTP Code
-                      </label>
-                      <span className="text-[10px] text-text-muted">4 digits</span>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-semibold text-text-secondary">
+                          Enter 4-Digit Security Code
+                        </label>
+                        <span className="text-[10px] text-text-muted">4 digits</span>
+                      </div>
+                      <div className="relative">
+                        <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
+                        <input
+                          ref={otpInputRef}
+                          type="text"
+                          id="otp-code-input"
+                          required
+                          autoFocus
+                          maxLength={4}
+                          placeholder="••••"
+                          value={forgotOtp}
+                          onChange={(e) => setForgotOtp(e.target.value.replace(/\D/g, ''))}
+                          className="w-full rounded-2xl border border-white/10 bg-white/[0.04] pl-10 pr-4 py-2.5 text-center font-mono tracking-widest text-xl font-bold text-text-primary placeholder:text-text-muted focus:border-primary-light focus:outline-none backdrop-blur-md"
+                        />
+                      </div>
                     </div>
-                    <div className="relative">
-                      <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
-                      <input
-                        type="text"
-                        id="otp-code-input"
-                        required
-                        maxLength={4}
-                        placeholder="e.g. 8421"
-                        value={forgotOtp}
-                        onChange={(e) => setForgotOtp(e.target.value.replace(/\D/g, ''))}
-                        className="w-full rounded-2xl border border-white/10 bg-white/[0.04] pl-10 pr-4 py-2.5 text-center font-mono tracking-widest text-lg font-bold text-text-primary placeholder:text-text-muted focus:border-primary-light focus:outline-none backdrop-blur-md"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    id="verify-otp-btn"
-                    disabled={isLoading || forgotOtp.trim().length < 4}
-                    className="w-full flex items-center justify-center gap-2 rounded-2xl bg-primary py-3 text-xs font-bold text-white hover:bg-primary-dark transition-all shadow-lg shadow-primary/25 border border-white/15 disabled:opacity-50 cursor-pointer"
-                  >
-                    {isLoading ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 animate-spin" />
-                        <span>Verifying with Database...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Verify OTP Code</span>
-                        <ArrowRight className="h-4 w-4" />
-                      </>
-                    )}
-                  </button>
-
-                  <div className="flex items-center justify-between text-xs text-text-muted pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setForgotStep('request')}
-                      className="hover:text-text-primary inline-flex items-center gap-1 transition-colors"
-                    >
-                      <ArrowLeft className="h-3 w-3" />
-                      <span>Change Email</span>
-                    </button>
 
                     <button
-                      type="button"
-                      disabled={isLoading || resendCooldown > 0}
-                      onClick={() => handleRequestOtp()}
-                      className="text-primary-light hover:underline font-semibold disabled:opacity-50 disabled:no-underline transition-colors"
+                      type="submit"
+                      id="verify-otp-btn"
+                      disabled={isLoading || forgotOtp.trim().length < 4}
+                      className="w-full flex items-center justify-center gap-2 rounded-2xl bg-primary py-3 text-xs font-bold text-white hover:bg-primary-dark transition-all shadow-lg shadow-primary/25 border border-white/15 disabled:opacity-50 cursor-pointer"
                     >
-                      {resendCooldown > 0 ? `Resend OTP (${resendCooldown}s)` : 'Resend New OTP'}
+                      {isLoading ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                          <span>Verifying with Database...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Verify OTP Code</span>
+                          <ArrowRight className="h-4 w-4" />
+                        </>
+                      )}
                     </button>
-                  </div>
-                </form>
-              )}
+
+                    <div className="flex items-center justify-between text-xs text-text-muted pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setForgotStep('request')}
+                        className="hover:text-text-primary inline-flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <ArrowLeft className="h-3 w-3" />
+                        <span>Change Email</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isLoading || resendCooldown > 0}
+                        onClick={() => handleRequestOtp()}
+                        className="text-primary-light hover:underline font-semibold disabled:opacity-50 disabled:no-underline transition-colors cursor-pointer"
+                      >
+                        {resendCooldown > 0 ? `Resend OTP in ${resendCooldown}s` : 'Resend New OTP'}
+                      </button>
+                    </div>
+                  </form>
+                );
+              })()}
 
               {/* Step 3: Set New Password & Update into Database */}
               {forgotStep === 'new_password' && (

@@ -8,10 +8,13 @@ import {
   BadgeItem,
   ExamResult,
   ExamSession,
+  ExamType,
   GapAssessmentItem,
   GapAnalysisItem,
   ComplianceStatus,
-  LearningPath
+  LearningPath,
+  GamificationToast,
+  getUserLevelDetails
 } from '../types';
 import {
   INITIAL_FRAMEWORKS,
@@ -58,11 +61,36 @@ interface AuthAndDataContextType {
   isModuleCompleted: (moduleId: string) => boolean;
   isFrameworkCompleted: (frameworkId: string) => boolean;
 
+  // Learning Paths Completion
+  completedLearningPathIds: string[];
+  completeLearningPath: (pathId: string) => { xpEarned: number; newBadges: BadgeItem[] };
+  isLearningPathCompleted: (pathId: string) => boolean;
+
+  // Custom XP Awarding
+  awardCustomXp: (amount: number, reason: string) => void;
+
+  // Gamification Toasts & Feedback
+  gamificationToasts: GamificationToast[];
+  triggerGamificationToast: (toast: Omit<GamificationToast, 'id' | 'timestamp'>) => void;
+  dismissGamificationToast: (id: string) => void;
+
   // Exam System
   questions: QuestionItem[];
   examHistory: ExamResult[];
   activeExamSession: ExamSession | null;
-  startExam: (examType: 'quick' | 'standard' | 'professional' | 'custom', frameworkId?: string) => ExamSession;
+  startExam: (
+    paramOrType: ExamType | {
+      examType: ExamType;
+      frameworkId?: string;
+      questionCount?: number;
+      durationMinutes?: number;
+      title?: string;
+      isUntimed?: boolean;
+      specificQuestions?: QuestionItem[];
+    },
+    frameworkId?: string
+  ) => ExamSession;
+  togglePauseExamTimer: () => void;
   saveActiveExamAnswer: (questionId: string, optionIndex: number) => void;
   toggleFlagQuestion: (questionId: string) => void;
   updateActiveExamTimer: (secondsRemaining: number) => void;
@@ -112,6 +140,7 @@ const STORAGE_KEYS = {
   COMPLETED_LESSONS: 'complianceverse_completed_lessons_v3',
   COMPLETED_MODULES: 'complianceverse_completed_modules_v3',
   COMPLETED_FRAMEWORKS: 'complianceverse_completed_frameworks_v3',
+  COMPLETED_PATHS: 'complianceverse_completed_paths_v3',
   EXAM_HISTORY: 'complianceverse_exam_history_v3',
   ACTIVE_EXAM: 'complianceverse_active_exam_v3',
   UNLOCKED_BADGES: 'complianceverse_unlocked_badges_v3',
@@ -146,10 +175,13 @@ const DEFAULT_USER: UserProfile = {
   name: 'Auditor',
   email: '',
   role: 'student',
-  level: 'Beginner',
+  level: 'Compliance Explorer',
+  levelNumber: 1,
   xp: 0,
   streakDays: 0,
+  longestStreak: 0,
   lastActiveDate: new Date().toISOString().split('T')[0],
+  lastDailyBonusDate: '',
   totalLessonsCompleted: 0,
   totalExamsCompleted: 0,
   averageScore: 0,
@@ -157,26 +189,40 @@ const DEFAULT_USER: UserProfile = {
 };
 
 function calculateLevelFromXp(xp: number): UserLevel {
-  if (xp >= 2000) return 'Lead Auditor';
-  if (xp >= 1200) return 'Expert';
-  if (xp >= 600) return 'Advanced';
-  if (xp >= 250) return 'Intermediate';
-  return 'Beginner';
+  return getUserLevelDetails(xp).levelTitle;
 }
 
-function computeNewStreak(prevStreak: number = 0, lastActiveDate?: string): { streakDays: number; lastActiveDate: string } {
+function computeNewStreak(
+  prevStreak: number = 0,
+  prevLongest: number = 0,
+  lastActiveDate?: string
+): { streakDays: number; longestStreak: number; lastActiveDate: string; isNewActiveDay: boolean } {
   const today = new Date().toISOString().split('T')[0];
   if (!lastActiveDate || prevStreak === 0) {
-    return { streakDays: 1, lastActiveDate: today };
+    const s = 1;
+    return {
+      streakDays: s,
+      longestStreak: Math.max(prevLongest || 0, s),
+      lastActiveDate: today,
+      isNewActiveDay: true,
+    };
   }
   if (lastActiveDate === today) {
-    return { streakDays: prevStreak, lastActiveDate: today };
+    return {
+      streakDays: prevStreak,
+      longestStreak: Math.max(prevLongest || 0, prevStreak),
+      lastActiveDate: today,
+      isNewActiveDay: false,
+    };
   }
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-  if (lastActiveDate === yesterday) {
-    return { streakDays: prevStreak + 1, lastActiveDate: today };
-  }
-  return { streakDays: 1, lastActiveDate: today };
+  const s = lastActiveDate === yesterday ? prevStreak + 1 : 1;
+  return {
+    streakDays: s,
+    longestStreak: Math.max(prevLongest || 0, s),
+    lastActiveDate: today,
+    isNewActiveDay: true,
+  };
 }
 
 const AuthAndDataContext = createContext<AuthAndDataContextType | undefined>(undefined);
@@ -254,6 +300,17 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
     return saved ? JSON.parse(saved) : INITIAL_GAP_ASSESSMENTS;
   });
 
+  const [completedLearningPathIds, setCompletedLearningPathIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.COMPLETED_PATHS);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [gamificationToasts, setGamificationToasts] = useState<GamificationToast[]>([]);
+
   // Comply AI global modal state
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [aiModalInitialPrompt, setAiModalInitialPrompt] = useState('');
@@ -295,6 +352,10 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
   }, [completedFrameworkIds]);
 
   useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.COMPLETED_PATHS, JSON.stringify(completedLearningPathIds));
+  }, [completedLearningPathIds]);
+
+  useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.EXAM_HISTORY, JSON.stringify(examHistory));
   }, [examHistory]);
 
@@ -313,6 +374,19 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.GAP_ASSESSMENTS, JSON.stringify(gapAssessments));
   }, [gapAssessments]);
+
+  const dismissGamificationToast = useCallback((id: string) => {
+    setGamificationToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  const triggerGamificationToast = useCallback((toast: Omit<GamificationToast, 'id' | 'timestamp'>) => {
+    const newToast: GamificationToast = {
+      ...toast,
+      id: 'toast-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+      timestamp: Date.now(),
+    };
+    setGamificationToasts(prev => [newToast, ...prev.slice(0, 4)]);
+  }, []);
 
   // Initial Supabase Session Sync on Load
   useEffect(() => {
@@ -645,112 +719,372 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
     localStorage.removeItem(STORAGE_KEYS.ACTIVE_EXAM);
   };
 
-  // Lesson & Progress Tracking
+  // Lesson & Progress Tracking (Idempotent XP & Achievement evaluation)
   const completeLesson = useCallback((lessonId: string, frameworkId: string, moduleId: string) => {
-    let earnedXp = 0;
-    const newBadges: BadgeItem[] = [];
+    // Idempotency check: if already completed, do not re-reward XP or duplicate badges
+    if (completedLessonIds.includes(lessonId)) {
+      return { xpEarned: 0, newBadges: [] };
+    }
 
-    if (!completedLessonIds.includes(lessonId)) {
-      earnedXp += 50;
-      const nextLessons = [...completedLessonIds, lessonId];
-      setCompletedLessonIds(nextLessons);
+    let earnedXp = 50; // Base lesson completion
+    const nextLessons = [...completedLessonIds, lessonId];
+    setCompletedLessonIds(nextLessons);
 
-      const framework = frameworks.find(f => f.id === frameworkId);
-      const mod = framework?.modules.find(m => m.id === moduleId);
-      let nextModules = [...completedModuleIds];
+    const framework = frameworks.find(f => f.id === frameworkId);
+    const mod = framework?.modules.find(m => m.id === moduleId);
+    let nextModules = [...completedModuleIds];
 
-      if (mod && !completedModuleIds.includes(moduleId)) {
-        const allLessonsDone = mod.lessonIds.every(lid => nextLessons.includes(lid));
-        if (allLessonsDone) {
-          earnedXp += 100;
-          nextModules.push(moduleId);
-          setCompletedModuleIds(nextModules);
+    if (mod && !completedModuleIds.includes(moduleId)) {
+      const allLessonsDone = mod.lessonIds.every(lid => nextLessons.includes(lid));
+      if (allLessonsDone) {
+        earnedXp += 100; // Module completion bonus
+        nextModules.push(moduleId);
+        setCompletedModuleIds(nextModules);
+        triggerGamificationToast({
+          type: 'xp',
+          title: '+100 XP: Module Completed',
+          message: `Finished all controls in ${mod.title}`,
+          xpAmount: 100,
+        });
+      }
+    }
+
+    let nextFrameworks = [...completedFrameworkIds];
+    if (framework && !completedFrameworkIds.includes(frameworkId)) {
+      const allFrameworkLessonsDone = framework.lessons.every(l => nextLessons.includes(l.id));
+      if (allFrameworkLessonsDone) {
+        earnedXp += 500; // Framework completion bonus
+        nextFrameworks.push(frameworkId);
+        setCompletedFrameworkIds(nextFrameworks);
+        triggerGamificationToast({
+          type: 'xp',
+          title: '+500 XP: Framework Mastered',
+          message: `Completed full syllabus for ${framework.name}`,
+          xpAmount: 500,
+        });
+      }
+    }
+
+    // Badge Evaluation
+    const newlyUnlockedBadges: BadgeItem[] = [];
+    const newUnlockedBadgeIds = [...unlockedBadgeIds];
+
+    const checkAndUnlock = (badgeId: string) => {
+      if (!newUnlockedBadgeIds.includes(badgeId)) {
+        newUnlockedBadgeIds.push(badgeId);
+        const badge = INITIAL_BADGES.find(b => b.id === badgeId);
+        if (badge) {
+          newlyUnlockedBadges.push(badge);
+          setRecentBadgeUnlocked(badge);
+          earnedXp += (badge.xpReward || 50);
+          triggerGamificationToast({
+            type: 'badge',
+            title: `🏆 Badge Earned: ${badge.title}`,
+            message: `${badge.description} (+${badge.xpReward || 50} XP)`,
+            icon: badge.icon,
+            xpAmount: badge.xpReward || 50,
+          });
         }
       }
+    };
 
-      let nextFrameworks = [...completedFrameworkIds];
-      if (framework && !completedFrameworkIds.includes(frameworkId)) {
-        const allFrameworkLessonsDone = framework.lessons.every(l => nextLessons.includes(l.id));
-        if (allFrameworkLessonsDone) {
-          earnedXp += 500;
-          nextFrameworks.push(frameworkId);
-          setCompletedFrameworkIds(nextFrameworks);
-        }
+    // 1. Learning Badges checks
+    if (nextLessons.length >= 1) checkAndUnlock('badge-first-lesson');
+    if (nextLessons.length >= 5) checkAndUnlock('badge-knowledge-builder');
+
+    // Distinct frameworks studied
+    const distinctFrameworks = new Set(
+      nextLessons.map(id => {
+        const fw = frameworks.find(f => f.lessons.some(l => l.id === id));
+        return fw ? fw.id : null;
+      }).filter(Boolean)
+    );
+    if (distinctFrameworks.size >= 3) checkAndUnlock('badge-framework-explorer');
+
+    // Specialist Badges checks
+    const isoCount = nextLessons.filter(id => id.startsWith('iso') || id.includes('27001')).length;
+    if (isoCount >= 3) {
+      checkAndUnlock('badge-iso-explorer');
+      checkAndUnlock('badge-iso-champion');
+    }
+    const nistCount = nextLessons.filter(id => id.startsWith('nist') || id.includes('nist')).length;
+    if (nistCount >= 3) checkAndUnlock('badge-nist-navigator');
+    const privacyCount = nextLessons.filter(id => id.startsWith('gdpr') || id.includes('privacy') || id.includes('gdpr')).length;
+    if (privacyCount >= 2) checkAndUnlock('badge-privacy-advocate');
+    const riskCount = nextLessons.filter(id => id.startsWith('risk') || id.includes('risk') || id.includes('iso-31000')).length;
+    if (riskCount >= 2) checkAndUnlock('badge-risk-hunter');
+    const soc2Count = nextLessons.filter(id => id.startsWith('soc2') || id.includes('soc2')).length;
+    if (soc2Count >= 3) checkAndUnlock('badge-soc2-scout');
+
+    setUser(prev => {
+      const streakInfo = computeNewStreak(prev.streakDays, prev.longestStreak, prev.lastActiveDate);
+
+      // Streak badges check
+      if (streakInfo.streakDays >= 3) checkAndUnlock('badge-consistent-learner');
+      if (streakInfo.streakDays >= 7) checkAndUnlock('badge-7day-learner');
+      if (streakInfo.streakDays >= 30) checkAndUnlock('badge-30day-commitment');
+
+      // Daily learning activity bonus (+25 XP)
+      let dailyBonus = 0;
+      let nextDailyBonusDate = prev.lastDailyBonusDate;
+      if (streakInfo.isNewActiveDay && prev.lastDailyBonusDate !== streakInfo.lastActiveDate) {
+        dailyBonus = 25;
+        nextDailyBonusDate = streakInfo.lastActiveDate;
+        triggerGamificationToast({
+          type: 'streak',
+          title: `🔥 Active Streak: ${streakInfo.streakDays} Day${streakInfo.streakDays > 1 ? 's' : ''}`,
+          message: '+25 XP Daily learning activity bonus verified.',
+          xpAmount: 25,
+        });
       }
 
-      // Badge Checks
-      const newUnlockedBadgeIds = [...unlockedBadgeIds];
-      const checkAndUnlock = (badgeId: string) => {
-        if (!newUnlockedBadgeIds.includes(badgeId)) {
-          newUnlockedBadgeIds.push(badgeId);
-          const badge = INITIAL_BADGES.find(b => b.id === badgeId);
-          if (badge) {
-            newBadges.push(badge);
-            setRecentBadgeUnlocked(badge);
-          }
-        }
-      };
+      const totalXpToAdd = earnedXp + dailyBonus;
+      const prevLevelInfo = getUserLevelDetails(prev.xp);
+      const nextXp = prev.xp + totalXpToAdd;
+      const nextLevelInfo = getUserLevelDetails(nextXp);
 
-      if (nextLessons.length >= 1) checkAndUnlock('badge-first-lesson');
-      const soc2CompletedCount = nextLessons.filter(id => id.startsWith('soc2')).length;
-      if (soc2CompletedCount >= 3) checkAndUnlock('badge-soc2-scout');
-      const isoCompletedCount = nextLessons.filter(id => id.startsWith('iso')).length;
-      if (isoCompletedCount >= 3) checkAndUnlock('badge-iso-champion');
+      if (nextXp >= 5000) checkAndUnlock('badge-lead-auditor');
+
+      // Toast for base lesson completion
+      triggerGamificationToast({
+        type: 'xp',
+        title: '+50 XP: Lesson Mastered',
+        message: `Verified compliance audit progress. Total XP: ${nextXp.toLocaleString()}`,
+        xpAmount: 50,
+      });
+
+      // Level progression promotion
+      if (nextLevelInfo.levelNumber > prevLevelInfo.levelNumber) {
+        triggerGamificationToast({
+          type: 'level',
+          title: `🎖️ Level Up: ${nextLevelInfo.levelTitle}`,
+          message: `Congratulations! You reached Level ${nextLevelInfo.levelNumber}.`,
+          icon: 'Crown',
+        });
+      }
 
       setUnlockedBadgeIds(newUnlockedBadgeIds);
 
-      setUser(prev => {
-        const nextXp = prev.xp + earnedXp;
-        const nextLevel = calculateLevelFromXp(nextXp);
-        if (nextXp >= 1500) checkAndUnlock('badge-lead-auditor');
-        const streakInfo = computeNewStreak(prev.streakDays, prev.lastActiveDate);
-        const nextUser = {
-          ...prev,
-          xp: nextXp,
-          level: nextLevel,
-          streakDays: streakInfo.streakDays,
-          lastActiveDate: streakInfo.lastActiveDate,
-          totalLessonsCompleted: nextLessons.length,
-        };
+      const nextUser: UserProfile = {
+        ...prev,
+        xp: nextXp,
+        level: nextLevelInfo.levelTitle,
+        levelNumber: nextLevelInfo.levelNumber,
+        streakDays: streakInfo.streakDays,
+        longestStreak: streakInfo.longestStreak,
+        lastActiveDate: streakInfo.lastActiveDate,
+        lastDailyBonusDate: nextDailyBonusDate,
+        totalLessonsCompleted: nextLessons.length,
+      };
 
-        // Async Cloud Sync
-        if (isSupabaseActive) {
-          supabaseDbService.upsertProfile(nextUser).catch(console.warn);
-          supabaseDbService.saveUserProgress(prev.uid, {
-            completedLessons: nextLessons,
-            completedModules: nextModules,
-            completedFrameworks: nextFrameworks,
-            unlockedBadges: newUnlockedBadgeIds,
-          }).catch(console.warn);
-        }
+      // Async Cloud Sync to Supabase
+      if (isSupabaseActive) {
+        supabaseDbService.upsertProfile(nextUser).catch(console.warn);
+        supabaseDbService.saveUserProgress(prev.uid, {
+          completedLessons: nextLessons,
+          completedModules: nextModules,
+          completedFrameworks: nextFrameworks,
+          unlockedBadges: newUnlockedBadgeIds,
+        }).catch(console.warn);
+      }
 
-        return nextUser;
-      });
+      return nextUser;
+    });
+
+    return { xpEarned, newBadges: newlyUnlockedBadges };
+  }, [completedLessonIds, completedModuleIds, completedFrameworkIds, frameworks, unlockedBadgeIds, isSupabaseActive, triggerGamificationToast]);
+
+  // Complete Learning Path (Idempotent +500 XP & Badge)
+  const completeLearningPath = useCallback((pathId: string) => {
+    if (completedLearningPathIds.includes(pathId)) {
+      return { xpEarned: 0, newBadges: [] };
     }
 
-    return { xpEarned: earnedXp, newBadges };
-  }, [completedLessonIds, completedModuleIds, completedFrameworkIds, frameworks, unlockedBadgeIds, isSupabaseActive]);
+    const nextPaths = [...completedLearningPathIds, pathId];
+    setCompletedLearningPathIds(nextPaths);
+
+    let earnedXp = 500; // Learning path completion bonus
+    const newlyUnlockedBadges: BadgeItem[] = [];
+    const newUnlockedBadgeIds = [...unlockedBadgeIds];
+
+    const checkAndUnlock = (badgeId: string) => {
+      if (!newUnlockedBadgeIds.includes(badgeId)) {
+        newUnlockedBadgeIds.push(badgeId);
+        const badge = INITIAL_BADGES.find(b => b.id === badgeId);
+        if (badge) {
+          newlyUnlockedBadges.push(badge);
+          setRecentBadgeUnlocked(badge);
+          earnedXp += (badge.xpReward || 50);
+          triggerGamificationToast({
+            type: 'badge',
+            title: `🏆 Badge Earned: ${badge.title}`,
+            message: `${badge.description} (+${badge.xpReward || 50} XP)`,
+            icon: badge.icon,
+            xpAmount: badge.xpReward || 50,
+          });
+        }
+      }
+    };
+
+    if (nextPaths.length >= 1) checkAndUnlock('badge-compliance-explorer');
+
+    setUser(prev => {
+      const streakInfo = computeNewStreak(prev.streakDays, prev.longestStreak, prev.lastActiveDate);
+      let dailyBonus = 0;
+      let nextDailyBonusDate = prev.lastDailyBonusDate;
+      if (streakInfo.isNewActiveDay && prev.lastDailyBonusDate !== streakInfo.lastActiveDate) {
+        dailyBonus = 25;
+        nextDailyBonusDate = streakInfo.lastActiveDate;
+      }
+
+      const totalXpToAdd = earnedXp + dailyBonus;
+      const prevLevelInfo = getUserLevelDetails(prev.xp);
+      const nextXp = prev.xp + totalXpToAdd;
+      const nextLevelInfo = getUserLevelDetails(nextXp);
+
+      triggerGamificationToast({
+        type: 'xp',
+        title: '+500 XP: Learning Path Mastered',
+        message: `Milestone verified! Total XP: ${nextXp.toLocaleString()}`,
+        xpAmount: 500,
+      });
+
+      if (nextLevelInfo.levelNumber > prevLevelInfo.levelNumber) {
+        triggerGamificationToast({
+          type: 'level',
+          title: `🎖️ Level Up: ${nextLevelInfo.levelTitle}`,
+          message: `Congratulations! You reached Level ${nextLevelInfo.levelNumber}.`,
+          icon: 'Crown',
+        });
+      }
+
+      setUnlockedBadgeIds(newUnlockedBadgeIds);
+
+      const nextUser: UserProfile = {
+        ...prev,
+        xp: nextXp,
+        level: nextLevelInfo.levelTitle,
+        levelNumber: nextLevelInfo.levelNumber,
+        streakDays: streakInfo.streakDays,
+        longestStreak: streakInfo.longestStreak,
+        lastActiveDate: streakInfo.lastActiveDate,
+        lastDailyBonusDate: nextDailyBonusDate,
+      };
+
+      if (isSupabaseActive) {
+        supabaseDbService.upsertProfile(nextUser).catch(console.warn);
+      }
+
+      return nextUser;
+    });
+
+    return { xpEarned, newBadges: newlyUnlockedBadges };
+  }, [completedLearningPathIds, unlockedBadgeIds, isSupabaseActive, triggerGamificationToast]);
+
+  const isLearningPathCompleted = (pathId: string) => completedLearningPathIds.includes(pathId);
+
+  // Custom XP Awarding (Idempotent / Server-verified)
+  const awardCustomXp = useCallback((amount: number, reason: string) => {
+    if (amount <= 0) return;
+    setUser(prev => {
+      const prevLevelInfo = getUserLevelDetails(prev.xp);
+      const nextXp = prev.xp + amount;
+      const nextLevelInfo = getUserLevelDetails(nextXp);
+      const streakInfo = computeNewStreak(prev.streakDays, prev.longestStreak, prev.lastActiveDate);
+
+      triggerGamificationToast({
+        type: 'xp',
+        title: `+${amount} XP Awarded`,
+        message: reason,
+        xpAmount: amount,
+      });
+
+      if (nextLevelInfo.levelNumber > prevLevelInfo.levelNumber) {
+        triggerGamificationToast({
+          type: 'level',
+          title: `🎖️ Level Up: ${nextLevelInfo.levelTitle}`,
+          message: `You advanced to Level ${nextLevelInfo.levelNumber}!`,
+          icon: 'Crown',
+        });
+      }
+
+      const updatedUser: UserProfile = {
+        ...prev,
+        xp: nextXp,
+        level: nextLevelInfo.levelTitle,
+        levelNumber: nextLevelInfo.levelNumber,
+        streakDays: streakInfo.streakDays,
+        longestStreak: streakInfo.longestStreak,
+        lastActiveDate: streakInfo.lastActiveDate,
+      };
+
+      if (isSupabaseActive) {
+        supabaseDbService.upsertProfile(updatedUser).catch(console.warn);
+      }
+      return updatedUser;
+    });
+  }, [isSupabaseActive, triggerGamificationToast]);
 
   const isLessonCompleted = (lessonId: string) => completedLessonIds.includes(lessonId);
   const isModuleCompleted = (moduleId: string) => completedModuleIds.includes(moduleId);
   const isFrameworkCompleted = (frameworkId: string) => completedFrameworkIds.includes(frameworkId);
 
   // Exam Engine
-  const startExam = (examType: 'quick' | 'standard' | 'professional' | 'custom', frameworkId?: string): ExamSession => {
-    let pool = [...questions];
-    if (frameworkId) {
-      pool = pool.filter(q => q.frameworkId === frameworkId);
-      if (pool.length === 0) pool = [...questions];
+  const startExam = (
+    paramOrType: ExamType | {
+      examType: ExamType;
+      frameworkId?: string;
+      questionCount?: number;
+      durationMinutes?: number;
+      title?: string;
+      isUntimed?: boolean;
+      specificQuestions?: QuestionItem[];
+    },
+    frameworkIdParam?: string
+  ): ExamSession => {
+    let examType: ExamType = 'quick';
+    let frameworkId: string | undefined = undefined;
+    let customQuestionCount: number | undefined = undefined;
+    let customDurationMinutes: number | undefined = undefined;
+    let customTitle: string | undefined = undefined;
+    let isUntimed = false;
+    let specificQuestions: QuestionItem[] | undefined = undefined;
+
+    if (typeof paramOrType === 'object') {
+      examType = paramOrType.examType;
+      frameworkId = paramOrType.frameworkId;
+      customQuestionCount = paramOrType.questionCount;
+      customDurationMinutes = paramOrType.durationMinutes;
+      customTitle = paramOrType.title;
+      isUntimed = !!paramOrType.isUntimed;
+      specificQuestions = paramOrType.specificQuestions;
+    } else {
+      examType = paramOrType;
+      frameworkId = frameworkIdParam;
     }
 
-    let count = 10;
-    let timeLimitMinutes = 15;
-    if (examType === 'standard') {
-      count = 25;
-      timeLimitMinutes = 35;
-    } else if (examType === 'professional') {
-      count = 50;
-      timeLimitMinutes = 65;
+    let pool = specificQuestions && specificQuestions.length > 0 ? [...specificQuestions] : [...questions];
+    if (frameworkId && frameworkId !== 'all' && (!specificQuestions || specificQuestions.length === 0)) {
+      const filtered = pool.filter(q => q.frameworkId === frameworkId);
+      if (filtered.length > 0) {
+        pool = filtered;
+      }
+    }
+
+    let count = customQuestionCount || 10;
+    let timeLimitMinutes = customDurationMinutes || 15;
+
+    if (!customQuestionCount) {
+      if (examType === 'standard') {
+        count = 25;
+        timeLimitMinutes = 35;
+      } else if (examType === 'professional') {
+        count = 50;
+        timeLimitMinutes = 65;
+      } else if (examType === 'scenario') {
+        count = 10;
+        timeLimitMinutes = 30;
+      }
     }
 
     const shuffledQuestions = pool.sort(() => Math.random() - 0.5).slice(0, Math.min(count, pool.length));
@@ -760,10 +1094,14 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
       shuffledQuestions.push(clone);
     }
 
+    const computedTitle = customTitle || (frameworkId && frameworkId !== 'all'
+      ? `${frameworks.find(f => f.id === frameworkId)?.shortName || 'Framework'} Assessment`
+      : `${examType.toUpperCase()} Compliance Assessment`);
+
     const session: ExamSession = {
       examId: 'session-' + Date.now(),
       examType,
-      title: frameworkId ? `${frameworks.find(f => f.id === frameworkId)?.shortName || 'Framework'} Assessment` : `${examType.toUpperCase()} Compliance Assessment`,
+      title: computedTitle,
       frameworkId,
       questions: shuffledQuestions,
       shuffledOptionOrders: shuffledQuestions.map(q => q.options.map((_, i) => i)),
@@ -772,11 +1110,23 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
       startTime: Date.now(),
       timeLimitSeconds: timeLimitMinutes * 60,
       timeRemainingSeconds: timeLimitMinutes * 60,
+      isUntimed,
+      isPaused: false,
       isSubmitted: false,
     };
 
     setActiveExamSession(session);
     return session;
+  };
+
+  const togglePauseExamTimer = () => {
+    setActiveExamSession(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        isPaused: !prev.isPaused,
+      };
+    });
   };
 
   const saveActiveExamAnswer = (questionId: string, optionIndex: number) => {
@@ -824,6 +1174,7 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     let correctCount = 0;
     const domainStats: Record<string, { total: number; correct: number }> = {};
+    const typeStats: Record<string, { total: number; correct: number }> = {};
 
     const detailedAnswers = examQuestions.map(q => {
       const chosen = selectedAnswers[q.id];
@@ -835,9 +1186,17 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
       domainStats[domain].total += 1;
       if (isCorrect) domainStats[domain].correct += 1;
 
+      const qType = q.questionType || (q.options.length === 2 && q.options[0].toLowerCase().includes('true') ? 'true_false' : (q.scenarioText ? 'scenario' : 'multiple_choice'));
+      if (!typeStats[qType]) typeStats[qType] = { total: 0, correct: 0 };
+      typeStats[qType].total += 1;
+      if (isCorrect) typeStats[qType].correct += 1;
+
       return {
         questionId: q.id,
         questionText: q.question,
+        questionType: qType,
+        scenarioText: q.scenarioText,
+        sourceStandard: q.sourceStandard,
         selectedOptionIndex: chosen ?? -1,
         selectedOptionText: chosen !== undefined && q.options[chosen] ? q.options[chosen] : 'No answer provided',
         correctOptionIndex: q.correctIndex,
@@ -852,17 +1211,27 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
     const scorePercentage = total > 0 ? Math.round((correctCount / total) * 100) : 0;
     const passed = scorePercentage >= 75;
 
-    let xpEarned = 25;
+    let xpEarned = passed ? 150 : 50;
     if (passed) {
       if (examType === 'professional' || total >= 50) xpEarned = 500;
-      else if (examType === 'standard' || total >= 25) xpEarned = 250;
-      else xpEarned = 100;
-      if (scorePercentage === 100) xpEarned += 50;
+      else if (examType === 'scenario' || total >= 30) xpEarned = 400;
+      else if (examType === 'standard' || total >= 20) xpEarned = 300;
+      if (scorePercentage >= 90) xpEarned += 100; // Excellence bonus
+      if (scorePercentage === 100) xpEarned += 50; // Perfect score bonus
     }
 
     const domainBreakdown: Record<string, { total: number; correct: number; percentage: number }> = {};
     for (const [domain, stats] of Object.entries(domainStats)) {
       domainBreakdown[domain] = {
+        total: stats.total,
+        correct: stats.correct,
+        percentage: stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0,
+      };
+    }
+
+    const typeBreakdown: Record<string, { total: number; correct: number; percentage: number }> = {};
+    for (const [tKey, stats] of Object.entries(typeStats)) {
+      typeBreakdown[tKey] = {
         total: stats.total,
         correct: stats.correct,
         percentage: stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0,
@@ -884,37 +1253,98 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
       completedAt: new Date().toISOString(),
       answers: detailedAnswers,
       domainBreakdown,
+      typeBreakdown,
     };
 
     setExamHistory(prev => [result, ...prev]);
     setActiveExamSession(null);
     setLastExamResult(result);
 
+    // Assessment Badge Checks
+    const newlyUnlockedBadges: BadgeItem[] = [];
     const newUnlocked = [...unlockedBadgeIds];
-    if (passed && !newUnlocked.includes('badge-exam-pass')) {
-      newUnlocked.push('badge-exam-pass');
-      const b = INITIAL_BADGES.find(i => i.id === 'badge-exam-pass');
-      if (b) setRecentBadgeUnlocked(b);
+
+    const checkAndUnlockBadge = (bId: string) => {
+      if (!newUnlocked.includes(bId)) {
+        newUnlocked.push(bId);
+        const b = INITIAL_BADGES.find(i => i.id === bId);
+        if (b) {
+          newlyUnlockedBadges.push(b);
+          setRecentBadgeUnlocked(b);
+          xpEarned += (b.xpReward || 50);
+          triggerGamificationToast({
+            type: 'badge',
+            title: `🏆 Badge Earned: ${b.title}`,
+            message: `${b.description} (+${b.xpReward || 50} XP)`,
+            icon: b.icon,
+            xpAmount: b.xpReward || 50,
+          });
+        }
+      }
+    };
+
+    checkAndUnlockBadge('badge-assessment-starter');
+    if (passed) checkAndUnlockBadge('badge-exam-pass');
+    if (scorePercentage >= 80) checkAndUnlockBadge('badge-knowledge-master');
+    if (scorePercentage >= 90) {
+      const prior90Count = examHistory.filter(e => e.scorePercentage >= 90).length;
+      if (prior90Count >= 1) checkAndUnlockBadge('badge-assessment-expert');
     }
-    if (scorePercentage === 100 && !newUnlocked.includes('badge-exam-perfect')) {
-      newUnlocked.push('badge-exam-perfect');
-      const b = INITIAL_BADGES.find(i => i.id === 'badge-exam-perfect');
-      if (b) setRecentBadgeUnlocked(b);
-    }
+    if (scorePercentage === 100) checkAndUnlockBadge('badge-exam-perfect');
+
     setUnlockedBadgeIds(newUnlocked);
 
     setUser(prev => {
-      const nextXp = prev.xp + xpEarned;
       const nextExamsCount = prev.totalExamsCompleted + 1;
       const currentAvg = prev.averageScore || 80;
       const newAvg = Math.round((currentAvg * prev.totalExamsCompleted + scorePercentage) / nextExamsCount);
-      const streakInfo = computeNewStreak(prev.streakDays, prev.lastActiveDate);
+      const streakInfo = computeNewStreak(prev.streakDays, prev.longestStreak, prev.lastActiveDate);
+
+      let dailyBonus = 0;
+      let nextDailyBonusDate = prev.lastDailyBonusDate;
+      if (streakInfo.isNewActiveDay && prev.lastDailyBonusDate !== streakInfo.lastActiveDate) {
+        dailyBonus = 25;
+        nextDailyBonusDate = streakInfo.lastActiveDate;
+        triggerGamificationToast({
+          type: 'streak',
+          title: `🔥 Daily Streak: ${streakInfo.streakDays} Day${streakInfo.streakDays > 1 ? 's' : ''}`,
+          message: '+25 XP Daily learning activity bonus.',
+          xpAmount: 25,
+        });
+      }
+
+      const totalXpToAdd = xpEarned + dailyBonus;
+      const prevLevelInfo = getUserLevelDetails(prev.xp);
+      const nextXp = prev.xp + totalXpToAdd;
+      const nextLevelInfo = getUserLevelDetails(nextXp);
+
+      if (nextXp >= 5000) checkAndUnlockBadge('badge-lead-auditor');
+
+      triggerGamificationToast({
+        type: 'xp',
+        title: passed ? `+${xpEarned} XP: Exam Passed (${scorePercentage}%)` : `+${xpEarned} XP: Assessment Completed`,
+        message: passed ? 'Excellent compliance audit knowledge demonstrated.' : 'Review explanations and retake to improve score.',
+        xpAmount: xpEarned,
+      });
+
+      if (nextLevelInfo.levelNumber > prevLevelInfo.levelNumber) {
+        triggerGamificationToast({
+          type: 'level',
+          title: `🎖️ Level Up: ${nextLevelInfo.levelTitle}`,
+          message: `Congratulations! You reached Level ${nextLevelInfo.levelNumber}.`,
+          icon: 'Crown',
+        });
+      }
+
       const updatedUser = {
         ...prev,
         xp: nextXp,
-        level: calculateLevelFromXp(nextXp),
+        level: nextLevelInfo.levelTitle,
+        levelNumber: nextLevelInfo.levelNumber,
         streakDays: streakInfo.streakDays,
+        longestStreak: streakInfo.longestStreak,
         lastActiveDate: streakInfo.lastActiveDate,
+        lastDailyBonusDate: nextDailyBonusDate,
         totalExamsCompleted: nextExamsCount,
         averageScore: newAvg,
       };
@@ -922,6 +1352,9 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
       if (isSupabaseActive) {
         supabaseDbService.upsertProfile(updatedUser).catch(console.warn);
         supabaseDbService.saveExamResult(result, prev.uid).catch(console.warn);
+        supabaseDbService.saveUserProgress(prev.uid, {
+          unlockedBadges: newUnlocked,
+        }).catch(console.warn);
       }
 
       return updatedUser;
@@ -1082,10 +1515,18 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
         isLessonCompleted,
         isModuleCompleted,
         isFrameworkCompleted,
+        completedLearningPathIds,
+        completeLearningPath,
+        isLearningPathCompleted,
+        awardCustomXp,
+        gamificationToasts,
+        triggerGamificationToast,
+        dismissGamificationToast,
         questions,
         examHistory,
         activeExamSession,
         startExam,
+        togglePauseExamTimer,
         saveActiveExamAnswer,
         toggleFlagQuestion,
         updateActiveExamTimer,

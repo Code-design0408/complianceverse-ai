@@ -1,5 +1,8 @@
 import { FrameworkItem, QuestionItem, BadgeItem, LearningPath, GapAssessmentItem } from '../types';
 import { SUGGESTED_FRAMEWORK_VIDEOS } from './videoResources';
+import { FRAMEWORK_DEEP_DIVES } from './frameworkDeepDives';
+import { ENTERPRISE_LEARNING_PATHS } from './learningPathsData';
+import { COMPREHENSIVE_QUESTION_BANK } from './assessmentQuestions';
 
 const RAW_FRAMEWORKS: FrameworkItem[] = [
   {
@@ -777,16 +780,153 @@ Without network segmentation, your *entire corporate network* is considered in-s
       { id: 'gdpr-c4', code: 'Art. 33', title: '72-Hour Breach Notification', domain: 'Incident Management', guidance: 'Document incident response workflows to notify supervisory authorities within 72 hours of a breach.' },
       { id: 'gdpr-c5', code: 'Art. 35', title: 'Data Protection Impact Assessment (DPIA)', domain: 'Risk Assessment', guidance: 'Conduct DPIAs prior to implementing novel or high-risk data processing technologies.' }
     ]
+  },
+  {
+    id: 'cis-controls',
+    code: 'CIS Controls',
+    title: 'CIS Critical Security Controls v8',
+    shortName: 'CIS Controls',
+    category: 'Cybersecurity',
+    version: 'v8 (18 Safeguards)',
+    description: 'Prioritized, prescriptive set of 18 cyber defense safeguards designed to mitigate the vast majority of enterprise attacks.',
+    overview: 'The CIS Critical Security Controls (CIS Controls) v8 provide an actionable defense-in-depth blueprint organized into Implementation Groups (IG1, IG2, IG3), focusing on Asset Management, Access Control, Vulnerability Management, Security Monitoring, and Incident Response.',
+    badgeIcon: 'ShieldCheck',
+    color: '#00C896',
+    targetAudience: 'SecOps Engineers, CISOs, System Administrators, Defense-in-Depth Architects',
+    totalControls: 18,
+    xpReward: 500,
+    modules: [
+      {
+        id: 'cis-mod-1',
+        frameworkId: 'cis-controls',
+        title: 'Asset Management & Defense Hygiene (CIS 1 - 4)',
+        description: 'Enterprise hardware inventory, authorized software management, data protection, and secure configuration baselines.',
+        order: 1,
+        lessonIds: ['cis-l1'],
+        xpReward: 100
+      },
+      {
+        id: 'cis-mod-2',
+        frameworkId: 'cis-controls',
+        title: 'Access, Vulnerability & Continuous Monitoring (CIS 5 - 10)',
+        description: 'Account management, credential controls, automated vulnerability management, and centralized audit logging.',
+        order: 2,
+        lessonIds: ['cis-l2'],
+        xpReward: 100
+      }
+    ],
+    lessons: [
+      {
+        id: 'cis-l1',
+        moduleId: 'cis-mod-1',
+        frameworkId: 'cis-controls',
+        title: 'Enterprise Asset Inventory & Secure Baselines',
+        estimatedMinutes: 9,
+        difficulty: 'Beginner',
+        summary: 'Explore why asset visibility is the foundational prerequisite of all cybersecurity, and how CIS benchmarks prevent misconfigurations.',
+        bodyMarkdown: `
+### Why Asset Inventory Comes First (CIS 1 & 2)
+You cannot protect what you do not know exists. Attackers routinely scan networks for rogue development servers, unmanaged IoT devices, and forgotten testing databases.
+
+### Key Focus Areas:
+- **CIS Control 1: Inventory and Control of Enterprise Assets**: Actively manage all connected physical devices, cloud workloads, and virtual machines.
+- **CIS Control 2: Inventory and Control of Software Assets**: Enforce software whitelisting and remove unauthorized or end-of-life packages.
+- **CIS Control 3: Data Protection**: Classify and encrypt sensitive records at rest and in transit.
+- **CIS Control 4: Secure Configuration of Enterprise Assets and Software**: Establish hardened configuration baselines based on CIS Benchmarks.
+        `,
+        beginnerExplanation: 'Think of CIS Controls as the ultimate home inspection checklist: before you buy expensive smart alarms, you need to count every window and door, verify who has spare keys, and make sure the deadbolts actually work.',
+        professionalExplanation: 'CIS Controls v8 organizes 153 Safeguards across 18 Controls, prioritized by Implementation Groups: IG1 (Essential Cyber Hygiene), IG2 (Enterprise IT), and IG3 (High-Assurance defense against targeted nation-state attacks).',
+        realWorldExample: {
+          title: 'Municipal Agency Asset Discovery',
+          scenario: 'A municipal transit network suffered repeated brute-force attacks due to unmanaged testing servers deployed by external contractors.',
+          implementation: 'Deployed passive network monitoring to catalog connected hardware (CIS 1) and pushed CIS Benchmark configuration profiles across all endpoints (CIS 4).',
+          outcome: 'Discovered and isolated 34 shadow servers and achieved 99.4% compliance across CIS IG1 safeguards.',
+          lessonLearned: 'Asset visibility must precede all other defense spending.'
+        },
+        keyTakeaways: [
+          'CIS 1 and 2 require maintaining real-time inventories of all devices and software.',
+          'CIS Benchmarks provide consensus-based security baselines for operating systems and cloud services.',
+          'Implementation Group 1 (IG1) establishes foundational cyber hygiene for all businesses.'
+        ],
+        securityControls: ['CIS 1.1 Asset Inventory', 'CIS 2.1 Software Inventory', 'CIS 3.1 Data Classification', 'CIS 4.1 Secure Baselines'],
+        checkpointQuestion: {
+          question: 'According to CIS Controls v8, why are asset and software inventory placed as Controls 1 and 2?',
+          options: [
+            'Because hardware routers are the most expensive component of an IT budget',
+            'Because an organization cannot defend or secure systems and software it does not know exist',
+            'Because asset management is only required by government contractors',
+            'Because software inventories replace the need for employee access controls'
+          ],
+          correctIndex: 1,
+          explanation: 'Visibility is the cornerstone of cybersecurity. Without an accurate inventory of connected enterprise assets and software, defensive controls cannot be comprehensively deployed or audited.'
+        },
+        xpReward: 50
+      },
+      {
+        id: 'cis-l2',
+        moduleId: 'cis-mod-2',
+        frameworkId: 'cis-controls',
+        title: 'Vulnerability Management, Access Control & SIEM Monitoring',
+        estimatedMinutes: 10,
+        difficulty: 'Intermediate',
+        summary: 'Master continuous vulnerability scanning, least-privilege account management, and centralized SIEM audit logging.',
+        bodyMarkdown: `
+### Tactical Cyber Defense Hygiene (CIS 5, 7, 8 & 17)
+- **CIS Control 5: Account Management**: Assign unique accounts, mandate MFA, and immediately revoke credentials upon employee offboarding.
+- **CIS Control 7: Continuous Vulnerability Management**: Perform recurring vulnerability scans, evaluate CVSS scores, and remediate critical patches within documented SLAs.
+- **CIS Control 8: Audit Log Management**: Aggregate audit trails from firewalls, servers, and cloud identity providers into a centralized SIEM.
+- **CIS Control 17: Incident Response Management**: Document, drill, and continuously refine an enterprise incident response plan.
+        `,
+        beginnerExplanation: 'CIS Controls 5, 7, and 8 are like routine physical checkups and blood tests: you constantly test for known weaknesses, revoke old access badges when staff leave, and keep security cameras recording 24/7.',
+        professionalExplanation: 'Operationalizing CIS 5, 7, 8, and 17 closes the exploit window between zero-day public disclosure and weaponization, while establishing forensic telemetry for incident response.',
+        realWorldExample: {
+          title: 'Automated Remediation SLA Enforcement',
+          scenario: 'A fintech engineering team suffered from vulnerability backlog sprawl with over 800 open CVEs.',
+          implementation: 'Established automated vulnerability triage with 14-day SLAs for Critical/High CVSS vulnerabilities and integrated SIEM alerting.',
+          outcome: 'Reduced Mean Time to Remediate (MTTR) from 64 days to 9 days.',
+          lessonLearned: 'Vulnerability discovery without automated patch SLAs fails to protect systems.'
+        },
+        keyTakeaways: [
+          'Continuous vulnerability management ensures unpatched CVEs are closed before attackers exploit them.',
+          'Audit logging is useless without automated alerts and centralized time synchronization (NTP).',
+          'Documented incident response runbooks must be tested annually via tabletop exercises.'
+        ],
+        securityControls: ['CIS 5.1 Account Management', 'CIS 7.1 Vulnerability Scanning', 'CIS 8.1 SIEM Logging', 'CIS 17.1 IR Plan'],
+        checkpointQuestion: {
+          question: 'What is the primary role of CIS Control 8 (Audit Log Management)?',
+          options: [
+            'To store copies of employee emails for marketing campaigns',
+            'To collect, review, and retain audit logs of security events to detect attacks and support forensic investigations',
+            'To automatically delete log files every 24 hours to save disk space',
+            'To replace the need for firewall ingress filtering'
+          ],
+          correctIndex: 1,
+          explanation: 'Audit Log Management ensures that detailed event logs are centralized, preserved, and reviewed, enabling real-time threat detection and post-incident digital forensics.'
+        },
+        xpReward: 50
+      }
+    ],
+    controls: [
+      { id: 'cis-c1', code: 'CIS 1.1', title: 'Establish Enterprise Asset Inventory', domain: 'Asset Management', guidance: 'Maintain an accurate, updated inventory of all enterprise assets with IP and MAC addresses.' },
+      { id: 'cis-c2', code: 'CIS 2.1', title: 'Establish Software Inventory', domain: 'Asset Management', guidance: 'Actively manage software to ensure only authorized applications execute.' },
+      { id: 'cis-c3', code: 'CIS 3.11', title: 'Encrypt Sensitive Data at Rest', domain: 'Data Protection', guidance: 'Render sensitive records unreadable using strong cryptography (AES-256).' },
+      { id: 'cis-c4', code: 'CIS 5.1', title: 'Account Inventory & Least Privilege', domain: 'Access Control', guidance: 'Enforce centralized directory controls and least privilege access across all accounts.' },
+      { id: 'cis-c5', code: 'CIS 7.1', title: 'Continuous Vulnerability Management', domain: 'Vulnerability Management', guidance: 'Conduct weekly automated vulnerability scans and adhere to remediation SLAs.' },
+      { id: 'cis-c6', code: 'CIS 8.2', title: 'Collect & Centralize Audit Logs', domain: 'Security Monitoring', guidance: 'Transmit system and security events to a centralized SIEM repository with synchronized NTP time.' },
+      { id: 'cis-c7', code: 'CIS 17.1', title: 'Designate Incident Response Personnel', domain: 'Incident Response', guidance: 'Assign key personnel and maintain tested IR runbooks for cyber crisis containment.' }
+    ]
   }
 ];
 
 export const INITIAL_FRAMEWORKS: FrameworkItem[] = RAW_FRAMEWORKS.map(fw => ({
   ...fw,
-  suggestedVideos: SUGGESTED_FRAMEWORK_VIDEOS[fw.id] || []
+  suggestedVideos: SUGGESTED_FRAMEWORK_VIDEOS[fw.id] || [],
+  deepDive: FRAMEWORK_DEEP_DIVES[fw.id]
 }));
 
-// Rich Curated Question Bank (60+ questions with complete options, correct answers, explanations, domains)
+// Rich Curated Question Bank (80+ questions with complete options, correct answers, explanations, domains)
 export const QUESTION_BANK: QuestionItem[] = [
+  ...COMPREHENSIVE_QUESTION_BANK,
   // SOC 2 Questions
   {
     id: 'q-soc2-1',
@@ -1186,128 +1326,225 @@ export const QUESTION_BANK: QuestionItem[] = [
 
 // Unlockable Badges
 export const INITIAL_BADGES: BadgeItem[] = [
+  // LEARNING BADGES
+  {
+    id: 'badge-compliance-explorer',
+    title: 'Compliance Explorer',
+    description: 'Earned after completing your first structured enterprise learning path.',
+    icon: 'Compass',
+    category: 'learning',
+    criteria: 'Complete 1 learning path.',
+    xpReward: 50,
+    targetCount: 1,
+    metricType: 'paths'
+  },
+  {
+    id: 'badge-knowledge-builder',
+    title: 'Knowledge Builder',
+    description: 'Earned after completing multiple compliance lessons across regulatory domains.',
+    icon: 'BookOpen',
+    category: 'learning',
+    criteria: 'Complete 5 compliance lessons.',
+    xpReward: 50,
+    targetCount: 5,
+    metricType: 'lessons'
+  },
+  {
+    id: 'badge-framework-explorer',
+    title: 'Framework Explorer',
+    description: 'Earned after studying multiple frameworks across security, cloud, and privacy.',
+    icon: 'Layers',
+    category: 'learning',
+    criteria: 'Study 3 distinct frameworks.',
+    xpReward: 50,
+    targetCount: 3,
+    metricType: 'frameworks'
+  },
+
+  // ASSESSMENT BADGES
+  {
+    id: 'badge-assessment-starter',
+    title: 'Assessment Starter',
+    description: 'Completed your first formal timed practice assessment or certification mock.',
+    icon: 'CheckSquare',
+    category: 'assessment',
+    criteria: 'Complete 1 assessment.',
+    xpReward: 50,
+    targetCount: 1,
+    metricType: 'exams'
+  },
+  {
+    id: 'badge-knowledge-master',
+    title: 'Knowledge Master',
+    description: 'Achieved an exemplary score above 80% on a compliance certification assessment.',
+    icon: 'Award',
+    category: 'assessment',
+    criteria: 'Score 80% or higher on an assessment.',
+    xpReward: 50,
+    targetCount: 80,
+    metricType: 'score'
+  },
+  {
+    id: 'badge-assessment-expert',
+    title: 'Assessment Expert',
+    description: 'Demonstrated audit excellence by scoring 90% or higher on 2 or more assessments.',
+    icon: 'Sparkles',
+    category: 'assessment',
+    criteria: 'Score 90% or higher on 2 assessments.',
+    xpReward: 50,
+    targetCount: 2,
+    metricType: 'exams'
+  },
+
+  // CONSISTENCY BADGES
+  {
+    id: 'badge-consistent-learner',
+    title: 'Consistent Learner',
+    description: 'Maintained a disciplined compliance study streak for 3 consecutive calendar days.',
+    icon: 'Flame',
+    category: 'consistency',
+    criteria: 'Maintain a 3-day learning streak.',
+    xpReward: 50,
+    targetCount: 3,
+    metricType: 'streak'
+  },
+  {
+    id: 'badge-7day-learner',
+    title: '7-Day Learner',
+    description: 'Completed continuous compliance and security education for 7 consecutive days.',
+    icon: 'Flame',
+    category: 'consistency',
+    criteria: 'Maintain a 7-day learning streak.',
+    xpReward: 50,
+    targetCount: 7,
+    metricType: 'streak'
+  },
+  {
+    id: 'badge-30day-commitment',
+    title: '30-Day Commitment',
+    description: 'Achieved a legendary 30-day streak of dedicated daily compliance learning.',
+    icon: 'Crown',
+    category: 'consistency',
+    criteria: 'Maintain a 30-day learning streak.',
+    xpReward: 50,
+    targetCount: 30,
+    metricType: 'streak'
+  },
+
+  // SPECIALIST BADGES
+  {
+    id: 'badge-iso-explorer',
+    title: 'ISO 27001 Explorer',
+    description: 'Completed significant ISO/IEC 27001 management clauses and Annex A controls.',
+    icon: 'ShieldCheck',
+    category: 'specialist',
+    criteria: 'Complete 3 ISO 27001 lessons.',
+    xpReward: 50,
+    targetCount: 3,
+    metricType: 'specialist'
+  },
+  {
+    id: 'badge-nist-navigator',
+    title: 'NIST Navigator',
+    description: 'Mastered the core functions of the NIST Cybersecurity Framework (CSF 2.0).',
+    icon: 'SlidersHorizontal',
+    category: 'specialist',
+    criteria: 'Complete 3 NIST CSF lessons.',
+    xpReward: 50,
+    targetCount: 3,
+    metricType: 'specialist'
+  },
+  {
+    id: 'badge-privacy-advocate',
+    title: 'Privacy Advocate',
+    description: 'Mastered GDPR core principles, data subject rights, and privacy compliance requirements.',
+    icon: 'Lock',
+    category: 'specialist',
+    criteria: 'Complete 2 GDPR/Privacy lessons.',
+    xpReward: 50,
+    targetCount: 2,
+    metricType: 'specialist'
+  },
+  {
+    id: 'badge-risk-hunter',
+    title: 'Risk Hunter',
+    description: 'Completed comprehensive risk management, threat profiling, and mitigation training.',
+    icon: 'Target',
+    category: 'specialist',
+    criteria: 'Complete 2 Risk Management lessons.',
+    xpReward: 50,
+    targetCount: 2,
+    metricType: 'specialist'
+  },
+
+  // PLATFORM & MILESTONE BADGES (Backwards compatibility)
   {
     id: 'badge-welcome',
     title: 'Compliance Cadet',
     description: 'Began the journey on ComplianceVerse AI and established your auditor profile.',
     icon: 'Compass',
     category: 'mastery',
-    criteria: 'Initialize your auditor profile.'
+    criteria: 'Initialize your auditor profile.',
+    xpReward: 50
   },
   {
     id: 'badge-first-lesson',
     title: 'First Control Mastered',
     description: 'Completed your very first compliance lesson with full comprehension.',
     icon: 'BookOpen',
-    category: 'mastery',
-    criteria: 'Complete 1 lesson.'
+    category: 'learning',
+    criteria: 'Complete 1 lesson.',
+    xpReward: 50
   },
   {
     id: 'badge-soc2-scout',
     title: 'SOC 2 Specialist',
-    description: 'Completed all foundational lessons in the SOC 2 Type II framework.',
+    description: 'Completed foundational Trust Services Criteria lessons in SOC 2 Type II.',
     icon: 'ShieldCheck',
-    category: 'framework',
-    criteria: 'Complete 3 SOC 2 lessons.'
+    category: 'specialist',
+    criteria: 'Complete 3 SOC 2 lessons.',
+    xpReward: 50
   },
   {
     id: 'badge-iso-champion',
     title: 'ISO 27001 Champion',
     description: 'Mastered the core management clauses and Annex A controls of ISO/IEC 27001.',
     icon: 'Award',
-    category: 'framework',
-    criteria: 'Complete all ISO 27001 lessons.'
+    category: 'specialist',
+    criteria: 'Complete all ISO 27001 lessons.',
+    xpReward: 50
   },
   {
     id: 'badge-exam-pass',
     title: 'Certified Exam Passer',
     description: 'Scored 75% or higher on a timed MCQ compliance certification exam.',
     icon: 'CheckCircle2',
-    category: 'exam',
-    criteria: 'Pass any exam assessment.'
+    category: 'assessment',
+    criteria: 'Pass any exam assessment.',
+    xpReward: 50
   },
   {
     id: 'badge-exam-perfect',
     title: 'Flawless Audit (100%)',
     description: 'Achieved a perfect 100% score on a Standard or Professional compliance exam.',
     icon: 'Sparkles',
-    category: 'exam',
-    criteria: 'Achieve 100% score on an exam.'
-  },
-  {
-    id: 'badge-streak-3',
-    title: 'Daily Auditor Streak',
-    description: 'Maintained a 3-day active learning streak studying compliance standards.',
-    icon: 'Flame',
-    category: 'streak',
-    criteria: 'Maintain a 3-day study streak.'
+    category: 'assessment',
+    criteria: 'Achieve 100% score on an exam.',
+    xpReward: 50
   },
   {
     id: 'badge-lead-auditor',
     title: 'Chief Compliance Officer',
-    description: 'Reached 1,500+ XP and demonstrated mastery across multiple global frameworks.',
+    description: 'Reached 5,000+ XP and demonstrated mastery across multiple global frameworks.',
     icon: 'Crown',
     category: 'mastery',
-    criteria: 'Reach 1,500+ total XP.'
+    criteria: 'Reach 5,000+ total XP.',
+    xpReward: 50
   }
 ];
 
 // Learning Paths
-export const LEARNING_PATHS: LearningPath[] = [
-  {
-    id: 'path-b2b-saas',
-    title: 'B2B SaaS Compliance Sprint (SOC 2 + ISO 27001)',
-    roleTarget: 'Cloud Architect / Startup Founder / Head of Security',
-    description: 'Targeted pathway for cloud startups preparing to pass their first SOC 2 Type II audit and achieve enterprise buyer trust.',
-    estimatedWeeks: 4,
-    modulesIncluded: [
-      { frameworkId: 'soc2', moduleId: 'soc2-mod-1' },
-      { frameworkId: 'soc2', moduleId: 'soc2-mod-2' },
-      { frameworkId: 'soc2', moduleId: 'soc2-mod-3' },
-      { frameworkId: 'iso27001', moduleId: 'iso-mod-1' }
-    ],
-    milestones: [
-      'Define Trust Services Criteria boundaries & scope',
-      'Implement MFA, UAR quarterly reviews, and 24h offboarding',
-      'Lock down CI/CD branch protection & change management',
-      'Draft Statement of Applicability (SoA) for ISO 27001'
-    ]
-  },
-  {
-    id: 'path-healthtech',
-    title: 'Digital Health & MedTech Security Lead',
-    roleTarget: 'Healthcare Security Engineer / Privacy Officer',
-    description: 'Master HIPAA ePHI technical safeguards, BAA contractual execution, and GDPR privacy engineering for medical applications.',
-    estimatedWeeks: 3,
-    modulesIncluded: [
-      { frameworkId: 'hipaa', moduleId: 'hipaa-mod-1' },
-      { frameworkId: 'gdpr', moduleId: 'gdpr-mod-1' },
-      { frameworkId: 'soc2', moduleId: 'soc2-mod-2' }
-    ],
-    milestones: [
-      'Implement § 164.312 Technical Safeguards & Audit Logs',
-      'Standardize Vendor BAA templates and subprocessor reviews',
-      'Integrate 72-hour breach response workflows under GDPR & HIPAA'
-    ]
-  },
-  {
-    id: 'path-fintech',
-    title: 'FinTech & Payments Security Architect',
-    roleTarget: 'Payment Security Engineer / GRC Director',
-    description: 'Comprehensive mastery of PCI-DSS v4.0 Cardholder Data Environment scoping, encryption keys, and SOC 2 CC6.6 boundary defenses.',
-    estimatedWeeks: 4,
-    modulesIncluded: [
-      { frameworkId: 'pcidss', moduleId: 'pci-mod-1' },
-      { frameworkId: 'soc2', moduleId: 'soc2-mod-2' },
-      { frameworkId: 'nistcsf', moduleId: 'nist-mod-1' }
-    ],
-    milestones: [
-      'Segment CDE network and eliminate post-auth SAD storage',
-      'Enforce PCI-DSS v4.0 Req 6.4.3 payment page script integrity',
-      'Implement universal MFA across all payment infrastructure'
-    ]
-  }
-];
+export const LEARNING_PATHS: LearningPath[] = ENTERPRISE_LEARNING_PATHS;
 
 // Initial Gap Assessment Items
 export const INITIAL_GAP_ASSESSMENTS: GapAssessmentItem[] = [

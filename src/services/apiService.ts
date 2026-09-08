@@ -29,26 +29,55 @@ export const apiService = {
     };
   },
 
-  // Explain Mistake
+  // Explain Mistake with Comply AI Tutor
   async explainExamMistake(params: {
-    question: string;
-    selectedOption: string;
-    correctOption: string;
-    standardExplanation: string;
+    question?: string;
+    questionText?: string;
+    scenarioText?: string;
+    selectedOption?: string;
+    selectedAnswer?: string;
+    correctOption?: string;
+    correctAnswer?: string;
+    standardExplanation?: string;
+    explanation?: string;
+    domain?: string;
     frameworkTitle?: string;
-  }) {
+    framework?: string;
+  }): Promise<{ debrief: string; explanation: string; disclaimer: string; isFallback?: boolean }> {
+    const q = params.questionText || params.question || '';
+    const sel = params.selectedAnswer || params.selectedOption || '';
+    const corr = params.correctAnswer || params.correctOption || '';
+    const expl = params.explanation || params.standardExplanation || '';
+    const fw = params.framework || params.frameworkTitle || '';
     try {
       const response = await fetch('/api/comply-ai/explain-mistake', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params),
+        body: JSON.stringify({
+          questionText: q,
+          scenarioText: params.scenarioText,
+          selectedAnswer: sel,
+          correctAnswer: corr,
+          explanation: expl,
+          domain: params.domain,
+          framework: fw,
+        }),
       });
       if (!response.ok) throw new Error('Server error');
-      return await response.json();
-    } catch (error) {
-      console.warn('Explain mistake fallback:', error);
+      const data = await response.json();
+      const debriefVal = data.debrief || data.explanation || '';
       return {
-        explanation: `${params.standardExplanation}\n\nIn real-world compliance audits, selecting the standard control ensures that technical proof exists for external auditors without relying solely on manual declarations.`,
+        debrief: debriefVal,
+        explanation: data.explanation || debriefVal,
+        disclaimer: data.disclaimer || 'This AI assistant provides educational guidance and does not constitute legal, regulatory, audit, or certification advice.',
+        isFallback: data.isFallback,
+      };
+    } catch (error) {
+      console.warn('Explain mistake fallback notice:', error);
+      const debriefText = `### Comply AI Audit Debrief\n\n1. **Choice Analysis**: The selected answer overlooks key operational requirements expected by compliance auditors.\n\n2. **Definitive Principle**: Compliance controls require verifiable proof of continuous enforcement rather than informal assumptions.\n\n3. **Audit Rule of Thumb**: When in doubt on certification exams, prioritize answers that enforce least-privilege, automated verification, and clear separation of duties.`;
+      return {
+        debrief: debriefText,
+        explanation: `${expl}\n\n${debriefText}`,
         disclaimer: 'This AI assistant provides educational guidance and does not constitute legal, regulatory, audit, or certification advice.',
         isFallback: true,
       };
@@ -174,12 +203,14 @@ export const apiService = {
         completedAt: data.evaluatedAt || new Date().toISOString(),
         answers: data.answers,
         domainBreakdown: data.domainBreakdown,
+        typeBreakdown: data.typeBreakdown,
       };
     } catch (error) {
       console.warn('Server exam validation fallback, evaluating deterministically on client:', error);
       // Deterministic Client Fallback
       let correctCount = 0;
       const domainStats: Record<string, { total: number; correct: number }> = {};
+      const typeStats: Record<string, { total: number; correct: number }> = {};
 
       const detailedAnswers = params.questions.map((q) => {
         const selectedIndex = params.answers[q.id];
@@ -191,9 +222,17 @@ export const apiService = {
         domainStats[domain].total += 1;
         if (isCorrect) domainStats[domain].correct += 1;
 
+        const qType = q.questionType || (q.options.length === 2 && q.options[0].toLowerCase().includes('true') ? 'true_false' : (q.scenarioText ? 'scenario' : 'multiple_choice'));
+        if (!typeStats[qType]) typeStats[qType] = { total: 0, correct: 0 };
+        typeStats[qType].total += 1;
+        if (isCorrect) typeStats[qType].correct += 1;
+
         return {
           questionId: q.id,
           questionText: q.question,
+          questionType: qType,
+          scenarioText: q.scenarioText,
+          sourceStandard: q.sourceStandard,
           selectedOptionIndex: selectedIndex ?? -1,
           selectedOptionText: selectedIndex !== undefined && q.options[selectedIndex] ? q.options[selectedIndex] : 'Not answered',
           correctOptionIndex: q.correctIndex,
@@ -208,17 +247,27 @@ export const apiService = {
       const score = total > 0 ? Math.round((correctCount / total) * 100) : 0;
       const passed = score >= 75;
 
-      let xp = 25;
+      let xp = 30;
       if (passed) {
         if (params.examType === 'professional' || total >= 50) xp = 500;
-        else if (params.examType === 'standard' || total >= 25) xp = 250;
-        else xp = 100;
+        else if (params.examType === 'scenario' || total >= 30) xp = 400;
+        else if (params.examType === 'standard' || total >= 20) xp = 300;
+        else xp = 150;
         if (score === 100) xp += 50;
       }
 
       const domainBreakdown: Record<string, { total: number; correct: number; percentage: number }> = {};
       for (const [domain, stats] of Object.entries(domainStats)) {
         domainBreakdown[domain] = {
+          total: stats.total,
+          correct: stats.correct,
+          percentage: stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0,
+        };
+      }
+
+      const typeBreakdown: Record<string, { total: number; correct: number; percentage: number }> = {};
+      for (const [tKey, stats] of Object.entries(typeStats)) {
+        typeBreakdown[tKey] = {
           total: stats.total,
           correct: stats.correct,
           percentage: stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0,
@@ -240,6 +289,7 @@ export const apiService = {
         completedAt: new Date().toISOString(),
         answers: detailedAnswers,
         domainBreakdown,
+        typeBreakdown,
       };
     }
   },
