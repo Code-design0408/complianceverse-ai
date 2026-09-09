@@ -21,7 +21,7 @@ import { useAuthAndData } from '../../context/AuthAndDataContext';
 import { apiService } from '../../services/apiService';
 
 export const ComplyAIAssistantModal: React.FC = () => {
-  const { isAiModalOpen, closeAiModal, aiModalInitialPrompt, aiModalContext, frameworks } = useAuthAndData();
+  const { isAiModalOpen, closeAiModal, aiModalInitialPrompt, aiModalContext, frameworks, logActivity } = useAuthAndData();
 
   const [activeTab, setActiveTab] = useState<'chat' | 'scenario' | 'remediation'>('chat');
   const [messages, setMessages] = useState<Array<{ id: string; sender: 'user' | 'assistant'; text: string; timestamp: string }>>([
@@ -100,6 +100,17 @@ export const ComplyAIAssistantModal: React.FC = () => {
       };
 
       setMessages(prev => [...prev, aiMsg]);
+
+      logActivity({
+        category: 'ai',
+        action: 'ai.chat',
+        summary: `Queried Comply AI Copilot: "${text.trim().slice(0, 80)}..."`,
+        details: {
+          prompt: text.trim(),
+          framework: aiModalContext?.framework,
+          topic: aiModalContext?.topic,
+        },
+      });
     } catch (err) {
       const errorMsg = {
         id: 'msg-' + (Date.now() + 1),
@@ -128,6 +139,15 @@ export const ComplyAIAssistantModal: React.FC = () => {
     try {
       const res = await apiService.generateScenario(selectedScenarioFramework, scenarioDifficulty);
       setCurrentScenario(res.scenario);
+      logActivity({
+        category: 'ai',
+        action: 'ai.generate_scenario',
+        summary: `Generated Interactive Audit Scenario: ${selectedScenarioFramework} (${scenarioDifficulty})`,
+        details: {
+          framework: selectedScenarioFramework,
+          difficulty: scenarioDifficulty,
+        },
+      });
     } catch (e) {
       console.error(e);
     } finally {
@@ -148,6 +168,16 @@ export const ComplyAIAssistantModal: React.FC = () => {
         notes: remediationNotes,
       });
       setRemediationResult(res.remediationPlan);
+      logActivity({
+        category: 'ai',
+        action: 'ai.gap_remediation',
+        summary: `Generated AI Remediation Roadmap: ${remediationFramework} (${remediationControl})`,
+        details: {
+          control: remediationControl,
+          framework: remediationFramework,
+          status: remediationStatus,
+        },
+      });
     } catch (e) {
       console.error(e);
     } finally {

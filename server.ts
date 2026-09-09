@@ -555,6 +555,651 @@ app.post('/api/progress/calculate-xp', (req, res) => {
   res.json({ xpEarned: xp, actionType });
 });
 
+// ==========================================
+// MASTER ADMIN & USER ACTIVITY AUDITING STORE
+// ==========================================
+
+export interface UserActivityLog {
+  id: string;
+  timestamp: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  userRole: string;
+  category: 'auth' | 'exam' | 'learning' | 'ai' | 'compliance' | 'admin' | 'system';
+  action: string;
+  summary: string;
+  details?: Record<string, any>;
+  ipAddress?: string;
+  userAgent?: string;
+}
+
+export interface TrackedUser {
+  uid: string;
+  name: string;
+  email: string;
+  role: 'student' | 'instructor' | 'admin';
+  level: string;
+  xp: number;
+  streakDays: number;
+  totalLessonsCompleted: number;
+  totalExamsCompleted: number;
+  averageScore: number;
+  createdAt: string;
+  lastActive: string;
+  status: 'active' | 'suspended' | 'verified';
+  totalActivitiesCount: number;
+  recentAction?: string;
+}
+
+const MASTER_ADMIN_EMAIL = 'nandanidodeja368@gmail.com';
+
+// Seed initial tracked users
+const trackedUsersMap = new Map<string, TrackedUser>([
+  [
+    'nandanidodeja368@gmail.com',
+    {
+      uid: 'usr-master-admin-001',
+      name: 'Nandani Dodeja',
+      email: 'nandanidodeja368@gmail.com',
+      role: 'admin',
+      level: 'Lead Auditor',
+      xp: 14500,
+      streakDays: 14,
+      totalLessonsCompleted: 32,
+      totalExamsCompleted: 12,
+      averageScore: 94,
+      createdAt: '2026-08-15T09:00:00.000Z',
+      lastActive: new Date().toISOString(),
+      status: 'verified',
+      totalActivitiesCount: 48,
+      recentAction: 'Master Governance Console Active',
+    },
+  ],
+  [
+    'alex.chen@cybersec.org',
+    {
+      uid: 'usr-student-101',
+      name: 'Alex Chen',
+      email: 'alex.chen@cybersec.org',
+      role: 'student',
+      level: 'GRC Professional',
+      xp: 4200,
+      streakDays: 8,
+      totalLessonsCompleted: 14,
+      totalExamsCompleted: 5,
+      averageScore: 84,
+      createdAt: '2026-08-28T10:30:00.000Z',
+      lastActive: new Date(Date.now() - 1000 * 60 * 12).toISOString(), // 12 mins ago
+      status: 'active',
+      totalActivitiesCount: 36,
+      recentAction: 'Completed SOC 2 Standard Exam (88%)',
+    },
+  ],
+  [
+    'sarah.miller@fintech.io',
+    {
+      uid: 'usr-student-102',
+      name: 'Sarah Miller',
+      email: 'sarah.miller@fintech.io',
+      role: 'student',
+      level: 'Risk Analyst',
+      xp: 2650,
+      streakDays: 5,
+      totalLessonsCompleted: 9,
+      totalExamsCompleted: 3,
+      averageScore: 78,
+      createdAt: '2026-09-01T14:15:00.000Z',
+      lastActive: new Date(Date.now() - 1000 * 60 * 45).toISOString(), // 45 mins ago
+      status: 'active',
+      totalActivitiesCount: 22,
+      recentAction: 'Asked Comply AI on PCI-DSS CDE scope',
+    },
+  ],
+  [
+    'marcus.v@cloudguard.net',
+    {
+      uid: 'usr-student-103',
+      name: 'Marcus Vance',
+      email: 'marcus.v@cloudguard.net',
+      role: 'student',
+      level: 'Compliance Specialist',
+      xp: 3800,
+      streakDays: 6,
+      totalLessonsCompleted: 11,
+      totalExamsCompleted: 4,
+      averageScore: 82,
+      createdAt: '2026-08-30T11:00:00.000Z',
+      lastActive: new Date(Date.now() - 1000 * 60 * 180).toISOString(), // 3 hours ago
+      status: 'active',
+      totalActivitiesCount: 28,
+      recentAction: 'Remediated CC6.1 Logical Access Gap',
+    },
+  ],
+  [
+    'elena.rostova@healthsecure.org',
+    {
+      uid: 'usr-student-104',
+      name: 'Elena Rostova',
+      email: 'elena.rostova@healthsecure.org',
+      role: 'student',
+      level: 'Security Learner',
+      xp: 1250,
+      streakDays: 3,
+      totalLessonsCompleted: 6,
+      totalExamsCompleted: 2,
+      averageScore: 70,
+      createdAt: '2026-09-04T08:20:00.000Z',
+      lastActive: new Date(Date.now() - 1000 * 60 * 360).toISOString(), // 6 hours ago
+      status: 'active',
+      totalActivitiesCount: 17,
+      recentAction: 'Reviewed HIPAA Security Rule Lesson 1.2',
+    },
+  ],
+]);
+
+// Seed realistic recent activities for comprehensive auditing stream
+const userActivitiesList: UserActivityLog[] = [
+  {
+    id: 'act-seed-001',
+    timestamp: new Date(Date.now() - 1000 * 60 * 4).toISOString(), // 4 mins ago
+    userId: 'usr-student-101',
+    userEmail: 'alex.chen@cybersec.org',
+    userName: 'Alex Chen',
+    userRole: 'student',
+    category: 'exam',
+    action: 'exam.submitted',
+    summary: 'Submitted SOC 2 Type II Standard Exam: 22/25 correct (Score: 88% - Passed, +300 XP)',
+    details: {
+      examType: 'standard',
+      frameworkId: 'soc2',
+      frameworkTitle: 'SOC 2 Type II',
+      scorePercentage: 88,
+      passed: true,
+      timeSpentSeconds: 742,
+      xpEarned: 300,
+      correctAnswers: 22,
+      totalQuestions: 25,
+      strongestDomain: 'Logical and Physical Access Controls',
+      weakestDomain: 'System Operations & Monitoring',
+    },
+    ipAddress: '198.51.100.42',
+    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/128.0.0.0',
+  },
+  {
+    id: 'act-seed-002',
+    timestamp: new Date(Date.now() - 1000 * 60 * 18).toISOString(), // 18 mins ago
+    userId: 'usr-student-102',
+    userEmail: 'sarah.miller@fintech.io',
+    userName: 'Sarah Miller',
+    userRole: 'student',
+    category: 'ai',
+    action: 'ai.chat',
+    summary: 'Asked Comply AI: "Explain PCI-DSS v4.0 Requirement 6.4.3 client-side script tamper protection"',
+    details: {
+      framework: 'pci-dss',
+      topic: 'Client-Side Script Management',
+      querySnippet: 'How do auditors test Requirement 6.4.3 for script authorization and integrity?',
+    },
+    ipAddress: '203.0.113.19',
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Edge/127.0.0.0',
+  },
+  {
+    id: 'act-seed-003',
+    timestamp: new Date(Date.now() - 1000 * 60 * 32).toISOString(), // 32 mins ago
+    userId: 'usr-student-103',
+    userEmail: 'marcus.v@cloudguard.net',
+    userName: 'Marcus Vance',
+    userRole: 'student',
+    category: 'compliance',
+    action: 'gap.status_change',
+    summary: 'Updated Control Status for SOC 2 CC6.1 (Logical Access) to "Compliant"',
+    details: {
+      framework: 'soc2',
+      controlCode: 'CC6.1',
+      controlTitle: 'Logical Access Controls & IAM Provisioning',
+      previousStatus: 'Partially Compliant',
+      newStatus: 'Compliant',
+      evidenceArtifact: 'Okta SCIM automated deprovisioning audit log sampled across 50 terminated users.',
+    },
+    ipAddress: '198.51.100.88',
+    userAgent: 'Mozilla/5.0 (X11; Linux x86_64) Firefox/129.0',
+  },
+  {
+    id: 'act-seed-004',
+    timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(), // 45 mins ago
+    userId: 'usr-student-104',
+    userEmail: 'elena.rostova@healthsecure.org',
+    userName: 'Elena Rostova',
+    userRole: 'student',
+    category: 'exam',
+    action: 'exam.canceled',
+    summary: 'Canceled Active Exam Session: NIST CSF 2.0 Quick Practice (User exited at Q4 of 10)',
+    details: {
+      examType: 'quick',
+      frameworkId: 'nist-csf',
+      frameworkTitle: 'NIST CSF 2.0',
+      reason: 'User navigated away or clicked Exit / Cancel Exam button',
+      questionsAttempted: 4,
+      totalQuestions: 10,
+      timeSpentSeconds: 145,
+    },
+    ipAddress: '192.0.2.77',
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X)',
+  },
+  {
+    id: 'act-seed-005',
+    timestamp: new Date(Date.now() - 1000 * 60 * 62).toISOString(), // 1 hour ago
+    userId: 'usr-student-101',
+    userEmail: 'alex.chen@cybersec.org',
+    userName: 'Alex Chen',
+    userRole: 'student',
+    category: 'learning',
+    action: 'lesson.completed',
+    summary: 'Completed Lesson: "ISO 27001:2022 Annex A 5.15 Access Control" (+50 XP)',
+    details: {
+      frameworkId: 'iso27001',
+      lessonId: 'iso-5-15',
+      moduleId: 'iso-mod-5',
+      xpEarned: 50,
+      quizScore: '100%',
+    },
+    ipAddress: '198.51.100.42',
+    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/128.0.0.0',
+  },
+  {
+    id: 'act-seed-006',
+    timestamp: new Date(Date.now() - 1000 * 60 * 95).toISOString(),
+    userId: 'usr-student-102',
+    userEmail: 'sarah.miller@fintech.io',
+    userName: 'Sarah Miller',
+    userRole: 'student',
+    category: 'auth',
+    action: 'auth.login',
+    summary: 'User Logged In via Email Authentication (sarah.miller@fintech.io)',
+    details: {
+      method: 'password_credentials',
+      role: 'student',
+      deviceType: 'Desktop - Windows',
+    },
+    ipAddress: '203.0.113.19',
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Edge/127.0.0.0',
+  },
+  {
+    id: 'act-seed-007',
+    timestamp: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+    userId: 'usr-student-103',
+    userEmail: 'marcus.v@cloudguard.net',
+    userName: 'Marcus Vance',
+    userRole: 'student',
+    category: 'ai',
+    action: 'ai.explain_mistake',
+    summary: 'Requested AI Tutor Debrief on Exam Mistake: "HIPAA Business Associate Agreement (BAA) signing requirements"',
+    details: {
+      framework: 'hipaa',
+      questionSnippet: 'When is a cloud hosting provider classified as a Business Associate under HIPAA?',
+      selectedOption: 'Only when hosting more than 100,000 patient records',
+      correctOption: 'Whenever PHI is created, received, maintained, or transmitted, regardless of volume',
+    },
+    ipAddress: '198.51.100.88',
+    userAgent: 'Mozilla/5.0 (X11; Linux x86_64) Firefox/129.0',
+  },
+  {
+    id: 'act-seed-008',
+    timestamp: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
+    userId: 'usr-student-104',
+    userEmail: 'elena.rostova@healthsecure.org',
+    userName: 'Elena Rostova',
+    userRole: 'student',
+    category: 'auth',
+    action: 'auth.otp_request',
+    summary: 'Requested 4-Digit Security Verification OTP for Password Reset to elena.rostova@healthsecure.org',
+    details: {
+      channel: 'email_dispatch',
+      status: 'dispatched_successfully',
+    },
+    ipAddress: '192.0.2.77',
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X)',
+  },
+  {
+    id: 'act-seed-009',
+    timestamp: new Date(Date.now() - 1000 * 60 * 240).toISOString(),
+    userId: 'nandanidodeja368@gmail.com',
+    userEmail: 'nandanidodeja368@gmail.com',
+    userName: 'Nandani Dodeja',
+    userRole: 'admin',
+    category: 'admin',
+    action: 'admin.question_created',
+    summary: 'Master Admin created new exam question: "GDPR Cross-Border Transfer Mechanism Assessment"',
+    details: {
+      frameworkId: 'gdpr',
+      difficulty: 'Advanced',
+      domain: 'International Transfers & SCCs',
+    },
+    ipAddress: '127.0.0.1',
+    userAgent: 'MasterAdminConsole/3.0',
+  },
+];
+
+// Helper to record activity & sync user state
+function recordActivity(logData: {
+  userId?: string;
+  userEmail?: string;
+  userName?: string;
+  userRole?: string;
+  category: 'auth' | 'exam' | 'learning' | 'ai' | 'compliance' | 'admin' | 'system';
+  action: string;
+  summary: string;
+  details?: Record<string, any>;
+  ipAddress?: string;
+  userAgent?: string;
+}): UserActivityLog {
+  const cleanEmail = (logData.userEmail || 'anonymous@complianceverse.app').trim().toLowerCase();
+  const cleanName = logData.userName || (cleanEmail.includes('@') ? cleanEmail.split('@')[0] : 'Learner');
+  const role = (logData.userRole as any) || (cleanEmail === MASTER_ADMIN_EMAIL ? 'admin' : 'student');
+  const uid = logData.userId || `usr-${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+  const newLog: UserActivityLog = {
+    id: 'act-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
+    timestamp: new Date().toISOString(),
+    userId: uid,
+    userEmail: cleanEmail,
+    userName: cleanName.charAt(0).toUpperCase() + cleanName.slice(1),
+    userRole: role,
+    category: logData.category,
+    action: logData.action,
+    summary: logData.summary,
+    details: logData.details || {},
+    ipAddress: logData.ipAddress || '127.0.0.1',
+    userAgent: logData.userAgent || 'ComplianceVerse Web Client',
+  };
+
+  // Prepend to activities list (keep max 2,500)
+  userActivitiesList.unshift(newLog);
+  if (userActivitiesList.length > 2500) {
+    userActivitiesList.pop();
+  }
+
+  // Upsert user in tracked users map
+  let existingUser = trackedUsersMap.get(cleanEmail);
+  if (!existingUser) {
+    existingUser = {
+      uid: uid,
+      name: newLog.userName,
+      email: cleanEmail,
+      role: role,
+      level: 'Compliance Explorer',
+      xp: 0,
+      streakDays: 1,
+      totalLessonsCompleted: 0,
+      totalExamsCompleted: 0,
+      averageScore: 0,
+      createdAt: new Date().toISOString(),
+      lastActive: newLog.timestamp,
+      status: 'active',
+      totalActivitiesCount: 1,
+      recentAction: newLog.summary,
+    };
+    trackedUsersMap.set(cleanEmail, existingUser);
+  } else {
+    existingUser.lastActive = newLog.timestamp;
+    existingUser.totalActivitiesCount = (existingUser.totalActivitiesCount || 0) + 1;
+    existingUser.recentAction = newLog.summary;
+    if (logData.userName && logData.userName !== 'Learner' && logData.userName !== 'Auditor') {
+      existingUser.name = logData.userName;
+    }
+
+    // Update specific metrics based on action
+    if (newLog.action === 'exam.submitted' && newLog.details?.scorePercentage !== undefined) {
+      const prevTotal = existingUser.totalExamsCompleted || 0;
+      const prevScore = existingUser.averageScore || 0;
+      const newScore = Number(newLog.details.scorePercentage);
+      existingUser.totalExamsCompleted = prevTotal + 1;
+      existingUser.averageScore = Math.round((prevScore * prevTotal + newScore) / (prevTotal + 1));
+      if (newLog.details.xpEarned) {
+        existingUser.xp = (existingUser.xp || 0) + Number(newLog.details.xpEarned);
+      }
+    } else if (newLog.action === 'lesson.completed') {
+      existingUser.totalLessonsCompleted = (existingUser.totalLessonsCompleted || 0) + 1;
+      if (newLog.details?.xpEarned) {
+        existingUser.xp = (existingUser.xp || 0) + Number(newLog.details.xpEarned);
+      }
+    }
+  }
+
+  return newLog;
+}
+
+// 1. Log Activity Endpoint (Client-side trigger)
+app.post('/api/admin/activities/log', (req, res) => {
+  try {
+    const { userId, userEmail, userName, userRole, category, action, summary, details } = req.body;
+    if (!action || !summary) {
+      return res.status(400).json({ error: 'Action and summary are required' });
+    }
+
+    const ipAddress = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '127.0.0.1';
+    const userAgent = req.headers['user-agent'] || 'ComplianceVerse Client';
+
+    const logged = recordActivity({
+      userId,
+      userEmail,
+      userName,
+      userRole,
+      category: category || 'system',
+      action,
+      summary,
+      details,
+      ipAddress,
+      userAgent,
+    });
+
+    res.json({ success: true, log: logged });
+  } catch (error: any) {
+    console.error('Error logging activity:', error);
+    res.status(500).json({ error: 'Failed to record activity log' });
+  }
+});
+
+// 2. Query All Activities (Search, Filter, Paginate)
+app.get('/api/admin/activities', (req, res) => {
+  try {
+    const { search, category, userEmail, action, limit = 200 } = req.query;
+
+    let filtered = [...userActivitiesList];
+
+    if (category && typeof category === 'string' && category !== 'all') {
+      filtered = filtered.filter((act) => act.category.toLowerCase() === category.toLowerCase());
+    }
+
+    if (userEmail && typeof userEmail === 'string') {
+      filtered = filtered.filter((act) => act.userEmail.toLowerCase() === userEmail.toLowerCase());
+    }
+
+    if (action && typeof action === 'string') {
+      filtered = filtered.filter((act) => act.action.toLowerCase() === action.toLowerCase());
+    }
+
+    if (search && typeof search === 'string') {
+      const q = search.toLowerCase();
+      filtered = filtered.filter(
+        (act) =>
+          act.summary.toLowerCase().includes(q) ||
+          act.userEmail.toLowerCase().includes(q) ||
+          act.userName.toLowerCase().includes(q) ||
+          act.action.toLowerCase().includes(q) ||
+          JSON.stringify(act.details || {}).toLowerCase().includes(q)
+      );
+    }
+
+    const maxItems = Math.min(Number(limit) || 200, 500);
+    const paginated = filtered.slice(0, maxItems);
+
+    res.json({
+      totalCount: filtered.length,
+      returnedCount: paginated.length,
+      activities: paginated,
+      masterAdminEmail: MASTER_ADMIN_EMAIL,
+    });
+  } catch (error: any) {
+    console.error('Error in /api/admin/activities:', error);
+    res.status(500).json({ error: 'Failed to retrieve activities' });
+  }
+});
+
+// 3. Get All Tracked Users & Summary Statistics
+app.get('/api/admin/users', (req, res) => {
+  try {
+    const users = Array.from(trackedUsersMap.values()).sort(
+      (a, b) => new Date(b.lastActive).getTime() - new Date(a.lastActive).getTime()
+    );
+
+    res.json({
+      totalUsers: users.length,
+      users,
+      masterAdminEmail: MASTER_ADMIN_EMAIL,
+    });
+  } catch (error: any) {
+    console.error('Error in /api/admin/users:', error);
+    res.status(500).json({ error: 'Failed to retrieve users' });
+  }
+});
+
+// 4. Update User Status (Active / Suspended)
+app.post('/api/admin/users/status', (req, res) => {
+  try {
+    const { email, status } = req.body;
+    if (!email || !status) {
+      return res.status(400).json({ error: 'Email and status are required' });
+    }
+
+    const user = trackedUsersMap.get(email.toLowerCase().trim());
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    user.status = status;
+    recordActivity({
+      userId: 'usr-master-admin-001',
+      userEmail: MASTER_ADMIN_EMAIL,
+      userName: 'Nandani Dodeja',
+      userRole: 'admin',
+      category: 'admin',
+      action: 'admin.user_status_changed',
+      summary: `Master Admin updated user status for ${email} to "${status}"`,
+      details: { targetEmail: email, newStatus: status },
+    });
+
+    res.json({ success: true, user });
+  } catch (error: any) {
+    console.error('Error in /api/admin/users/status:', error);
+    res.status(500).json({ error: 'Failed to update user status' });
+  }
+});
+
+// 5. Get Real-Time Telemetry Stats
+app.get('/api/admin/stats', (req, res) => {
+  try {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayLogs = userActivitiesList.filter((a) => a.timestamp.startsWith(todayStr));
+
+    const examsCompleted = userActivitiesList.filter((a) => a.action === 'exam.submitted').length;
+    const examsCanceled = userActivitiesList.filter((a) => a.action === 'exam.canceled').length;
+    const aiQueriesCount = userActivitiesList.filter((a) => a.category === 'ai').length;
+
+    const allSubmittedScores = userActivitiesList
+      .filter((a) => a.action === 'exam.submitted' && a.details?.scorePercentage !== undefined)
+      .map((a) => Number(a.details?.scorePercentage));
+
+    const averagePassRate =
+      allSubmittedScores.length > 0
+        ? Math.round(
+            (allSubmittedScores.filter((s) => s >= 75).length / allSubmittedScores.length) * 100
+          )
+        : 85;
+
+    res.json({
+      totalUsers: trackedUsersMap.size,
+      totalActivities: userActivitiesList.length,
+      examsCompleted,
+      examsCanceled,
+      aiQueriesCount,
+      averagePassRate,
+      todayActivitiesCount: todayLogs.length,
+      masterAdminEmail: MASTER_ADMIN_EMAIL,
+    });
+  } catch (error: any) {
+    console.error('Error in /api/admin/stats:', error);
+    res.status(500).json({ error: 'Failed to calculate stats' });
+  }
+});
+
+// 6. Clear Logs (Protected by Master Admin Email check)
+app.delete('/api/admin/activities/clear', (req, res) => {
+  try {
+    const requesterEmail = (req.headers['x-admin-email'] as string || req.body?.adminEmail || '').toLowerCase().trim();
+    if (requesterEmail !== MASTER_ADMIN_EMAIL.toLowerCase()) {
+      return res.status(403).json({ error: `Access restricted. Only ${MASTER_ADMIN_EMAIL} can clear logs.` });
+    }
+
+    userActivitiesList.length = 0;
+    recordActivity({
+      userId: 'usr-master-admin-001',
+      userEmail: MASTER_ADMIN_EMAIL,
+      userName: 'Nandani Dodeja',
+      userRole: 'admin',
+      category: 'admin',
+      action: 'admin.logs_cleared',
+      summary: 'Master Admin cleared and rotated all activity logs.',
+    });
+
+    res.json({ success: true, message: 'Activity logs purged successfully' });
+  } catch (error: any) {
+    console.error('Error clearing logs:', error);
+    res.status(500).json({ error: 'Failed to clear logs' });
+  }
+});
+
+// 7. Export Activities (JSON / CSV Format)
+app.get('/api/admin/export', (req, res) => {
+  try {
+    const format = req.query.format === 'csv' ? 'csv' : 'json';
+
+    if (format === 'csv') {
+      const headers = ['ID', 'Timestamp (UTC)', 'User Name', 'User Email', 'Role', 'Category', 'Action', 'Summary', 'IP Address'];
+      const rows = userActivitiesList.map((a) => [
+        `"${a.id}"`,
+        `"${a.timestamp}"`,
+        `"${a.userName.replace(/"/g, '""')}"`,
+        `"${a.userEmail.replace(/"/g, '""')}"`,
+        `"${a.userRole}"`,
+        `"${a.category}"`,
+        `"${a.action}"`,
+        `"${a.summary.replace(/"/g, '""')}"`,
+        `"${a.ipAddress || ''}"`,
+      ]);
+
+      const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="complianceverse_user_activities_${Date.now()}.csv"`);
+      return res.send(csvContent);
+    }
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="complianceverse_user_activities_${Date.now()}.json"`);
+    res.json({
+      exportedAt: new Date().toISOString(),
+      masterAdmin: MASTER_ADMIN_EMAIL,
+      totalCount: userActivitiesList.length,
+      activities: userActivitiesList,
+    });
+  } catch (error: any) {
+    console.error('Error exporting logs:', error);
+    res.status(500).json({ error: 'Failed to export logs' });
+  }
+});
+
+
 // Start the Express server with Vite middleware support
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {

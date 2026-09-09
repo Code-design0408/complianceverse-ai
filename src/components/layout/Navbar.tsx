@@ -34,7 +34,9 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
     logout,
     openAiModal,
     openAuthPrompt,
-    activeExamSession
+    activeExamSession,
+    isMasterAdmin,
+    isMasterAdminUnlocked
   } = useAuthAndData();
 
   const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false);
@@ -49,9 +51,10 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
     { id: 'analytics', label: 'Analytics', icon: ShieldCheck },
   ];
 
-  // If instructor or admin, add Admin panel link
-  if (user.role === 'admin' || user.role === 'instructor') {
-    navItems.push({ id: 'admin', label: 'Instructor Hub', icon: UserCheck, badge: user.role.toUpperCase() });
+  // If master admin or owner, add Admin panel link
+  const isOwner = isMasterAdmin || isMasterAdminUnlocked || user.email?.toLowerCase() === 'nandanidodeja368@gmail.com' || user.role === 'admin';
+  if (isOwner) {
+    navItems.push({ id: 'admin', label: 'Admin Console', icon: UserCheck, badge: 'OWNER' });
   }
 
   const handleRoleChange = (newRole: UserRole) => {

@@ -3,6 +3,7 @@ import {
   Settings,
   User,
   Shield,
+  ShieldCheck,
   Bell,
   Trash2,
   CheckCircle2,
@@ -14,7 +15,8 @@ import { useAuthAndData } from '../context/AuthAndDataContext';
 import { UserRole } from '../types';
 
 export const SettingsPage: React.FC = () => {
-  const { user, role, loginAs, updateUserProfile, startFreshUser } = useAuthAndData();
+  const { user, role, loginAs, updateUserProfile, startFreshUser, isMasterAdmin, isMasterAdminUnlocked } = useAuthAndData();
+  const isOwnerAdmin = isMasterAdmin || isMasterAdminUnlocked || user.email?.toLowerCase() === 'nandanidodeja368@gmail.com' || user.role === 'admin';
 
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
@@ -139,26 +141,47 @@ export const SettingsPage: React.FC = () => {
           </div>
 
           <div className="pt-2 text-xs">
-            <label className="font-semibold text-text-secondary block mb-1">Active Role</label>
-            <div className="flex flex-wrap gap-3">
-              {(['student', 'instructor', 'admin'] as UserRole[]).map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => {
-                    setUserRole(r);
-                    loginAs(r);
-                  }}
-                  className={`px-4 py-2 rounded-xl border text-xs font-bold capitalize transition-all backdrop-blur-sm ${
-                    userRole === r
-                      ? 'border-primary-light bg-primary/30 text-white shadow-sm'
-                      : 'border-white/10 bg-white/[0.03] text-text-muted hover:text-text-primary hover:border-white/20'
-                  }`}
-                >
-                  {r === 'student' ? 'Student' : r === 'instructor' ? 'Instructor / Lead Auditor' : 'Administrator'}
-                </button>
-              ))}
-            </div>
+            <label className="font-semibold text-text-secondary block mb-1">Account Role & Profile</label>
+            {isOwnerAdmin ? (
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-3">
+                  {(['admin', 'instructor', 'student'] as UserRole[]).map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => {
+                        setUserRole(r);
+                        loginAs(r);
+                      }}
+                      className={`px-4 py-2 rounded-xl border text-xs font-bold capitalize transition-all backdrop-blur-sm ${
+                        userRole === r
+                          ? 'border-primary-light bg-primary/30 text-white shadow-sm'
+                          : 'border-white/10 bg-white/[0.03] text-text-muted hover:text-text-primary hover:border-white/20'
+                      }`}
+                    >
+                      {r === 'admin' ? 'Master Administrator (Owner)' : r === 'instructor' ? 'Instructor / Lead Auditor' : 'Student / Learner'}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-text-muted">
+                  Owner privileges unlocked. You have exclusive oversight of the Admin Control Center.
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2.5 p-3 rounded-2xl bg-white/[0.03] border border-white/10">
+                <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-primary/20 border border-primary/30 text-primary-light">
+                  <ShieldCheck className="h-4 w-4" />
+                </div>
+                <div>
+                  <span className="block text-xs font-bold text-text-primary">
+                    Student / Auditor (Standard User)
+                  </span>
+                  <span className="block text-[10px] text-text-muted">
+                    Assigned automatically upon registration. Full access to GRC frameworks, exams, and analytics.
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

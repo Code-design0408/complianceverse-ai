@@ -18,7 +18,9 @@ import {
   X,
   Bot,
   Award,
-  Zap
+  Zap,
+  ShieldAlert,
+  Lock
 } from 'lucide-react';
 import { useAuthAndData } from '../../context/AuthAndDataContext';
 import { UserRole } from '../../types';
@@ -47,7 +49,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     logout,
     openAiModal,
     openAuthPrompt,
-    activeExamSession
+    activeExamSession,
+    isMasterAdmin,
+    isMasterAdminUnlocked
   } = useAuthAndData();
 
   const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false);
@@ -62,13 +66,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'analytics', label: 'Analytics', icon: ShieldCheck, desc: 'Audit readiness telemetry' },
   ];
 
-  if (user.role === 'admin' || user.role === 'instructor') {
+  // Admin Side - Accessible ONLY to Owner (Nandani Dodeja / Master Admin)
+  const isOwnerAdmin = isMasterAdmin || isMasterAdminUnlocked || user.email?.toLowerCase() === 'nandanidodeja368@gmail.com' || user.role === 'admin';
+  if (isOwnerAdmin) {
     navItems.push({
       id: 'admin',
-      label: 'Instructor Hub',
-      icon: UserCheck,
-      badge: user.role.toUpperCase(),
-      desc: 'Question banks & metrics'
+      label: 'Admin Control Center',
+      icon: ShieldAlert,
+      badge: 'OWNER',
+      desc: 'Live user activity monitoring'
     });
   }
 

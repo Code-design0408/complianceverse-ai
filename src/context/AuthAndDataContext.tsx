@@ -28,6 +28,7 @@ import {
   supabaseAuthService,
   supabaseDbService,
 } from '../services/supabase';
+import { activityLogger, MASTER_ADMIN_EMAIL } from '../services/activityLogger';
 
 interface AuthAndDataContextType {
   // User & Auth
@@ -44,6 +45,15 @@ interface AuthAndDataContextType {
   requestPasswordResetOtp: (email: string) => Promise<{ success: boolean; otp?: string; message: string; error?: string }>;
   verifyPasswordResetOtp: (email: string, otp: string) => Promise<{ success: boolean; message: string; error?: string }>;
   resetPasswordWithOtp: (email: string, otp: string, newPassword: string) => Promise<{ success: boolean; message: string; error?: string }>;
+
+  // Master Administrator & Activity Monitoring
+  masterAdminEmail: string;
+  isMasterAdmin: boolean;
+  isMasterAdminUnlocked: boolean;
+  unlockMasterAdmin: (passcode?: string) => boolean;
+  lockMasterAdmin: () => void;
+  loginAsMasterAdmin: () => void;
+  logActivity: (payload: { category: any; action: string; summary: string; details?: Record<string, any> }) => void;
 
   // Supabase Status & Cloud Sync
   isSupabaseActive: boolean;
@@ -238,6 +248,62 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
     const saved = localStorage.getItem(STORAGE_KEYS.USER);
     return saved ? JSON.parse(saved) : DEFAULT_USER;
   });
+
+  // Master Admin Lock & Omniscient Activity Monitor
+  const [isMasterAdminUnlocked, setIsMasterAdminUnlocked] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('cv_master_admin_unlocked_v1') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const isMasterAdmin =
+    (Boolean(user.email) && user.email.toLowerCase().trim() === MASTER_ADMIN_EMAIL.toLowerCase()) ||
+    (user.role === 'admin') ||
+    isMasterAdminUnlocked;
+
+  const unlockMasterAdmin = (passcode?: string): boolean => {
+    const trimmed = (passcode || '').trim().toLowerCase();
+    // Accepts master passcode or master email or direct approval
+    if (!trimmed || trimmed === 'admin2026' || trimmed === 'master' || trimmed === MASTER_ADMIN_EMAIL.toLowerCase()) {
+      setIsMasterAdminUnlocked(true);
+      try {
+        localStorage.setItem('cv_master_admin_unlocked_v1', 'true');
+      } catch {}
+      activityLogger.log({
+        userId: user.uid || 'usr-master-admin-001',
+        userEmail: user.email || MASTER_ADMIN_EMAIL,
+        userName: user.name || 'Master Admin',
+        userRole: 'admin',
+        category: 'admin',
+        action: 'admin.unlocked',
+        summary: `Master Administrator console unlocked by ${user.email || MASTER_ADMIN_EMAIL}`,
+      });
+      return true;
+    }
+    return false;
+  };
+
+  const lockMasterAdmin = () => {
+    setIsMasterAdminUnlocked(false);
+    try {
+      localStorage.removeItem('cv_master_admin_unlocked_v1');
+    } catch {}
+  };
+
+  const logActivity = (payload: { category: any; action: string; summary: string; details?: Record<string, any> }) => {
+    activityLogger.log({
+      userId: user.uid,
+      userEmail: user.email,
+      userName: user.name,
+      userRole: user.role,
+      category: payload.category,
+      action: payload.action,
+      summary: payload.summary,
+      details: payload.details,
+    });
+  };
 
   const [frameworks] = useState<FrameworkItem[]>(INITIAL_FRAMEWORKS);
 
@@ -497,12 +563,14 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
   };
 
   const loginAs = (role: UserRole, customName?: string, customEmail?: string) => {
+    const finalName = customName || (user.name && user.name !== 'New Auditor' ? user.name : 'Auditor');
+    const finalEmail = customEmail || user.email || '';
     setUser(prev => {
       const updatedUser: UserProfile = {
         ...prev,
         uid: prev.uid || `usr-${role}-${Date.now().toString(36)}`,
-        name: customName || (prev.name && prev.name !== 'New Auditor' ? prev.name : 'Auditor'),
-        email: customEmail || prev.email || '',
+        name: finalName,
+        email: finalEmail,
         role,
       };
       if (isSupabaseActive && prev.uid) {
@@ -511,6 +579,31 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
       return updatedUser;
     });
     setIsAuthenticated(true);
+    activityLogger.log({
+      userEmail: finalEmail,
+      userName: finalName,
+      userRole: role,
+      category: 'auth',
+      action: 'auth.login',
+      summary: `Persona session switched to ${role} (${finalName})`,
+    });
+  };
+
+  const loginAsMasterAdmin = () => {
+    setIsMasterAdminUnlocked(true);
+    try {
+      localStorage.setItem('cv_master_admin_unlocked_v1', 'true');
+    } catch {}
+    loginAs('admin', 'Nandani Dodeja', MASTER_ADMIN_EMAIL);
+    activityLogger.log({
+      userId: 'usr-master-admin-001',
+      userEmail: MASTER_ADMIN_EMAIL,
+      userName: 'Nandani Dodeja',
+      userRole: 'admin',
+      category: 'auth',
+      action: 'auth.login',
+      summary: `Master Administrator authenticated into portal (${MASTER_ADMIN_EMAIL})`,
+    });
   };
 
   const signup = async (
@@ -525,10 +618,19 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
     const cleanName = name.trim() || (cleanEmail ? cleanEmail.split('@')[0].replace(/[._]/g, ' ') : 'Auditor');
     const formattedName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
 
+    const isOwner = cleanEmail.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase();
+    const effectiveRole: UserRole = isOwner ? 'admin' : (role || 'student');
+    if (isOwner) {
+      setIsMasterAdminUnlocked(true);
+      try {
+        localStorage.setItem('cv_master_admin_unlocked_v1', 'true');
+      } catch {}
+    }
+
     // Try Supabase Sign Up if configured and password provided
     if (isSupabaseActive && password) {
       setSupabaseSyncStatus('syncing');
-      const { data, error } = await supabaseAuthService.signUp(cleanEmail, password, { name: formattedName, role });
+      const { data, error } = await supabaseAuthService.signUp(cleanEmail, password, { name: formattedName, role: effectiveRole });
       if (error) {
         setSupabaseSyncStatus('error');
         return { success: false, error: error.message };
@@ -541,9 +643,9 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     const freshUser: UserProfile = {
       uid: finalUid,
-      name: formattedName,
+      name: isOwner ? 'Nandani Dodeja' : formattedName,
       email: cleanEmail,
-      role,
+      role: effectiveRole,
       level: 'Beginner',
       xp: 0,
       streakDays: 0,
@@ -566,6 +668,17 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     setUser(freshUser);
     setIsAuthenticated(true);
+
+    activityLogger.log({
+      userId: finalUid,
+      userEmail: cleanEmail,
+      userName: formattedName,
+      userRole: role,
+      category: 'auth',
+      action: 'auth.signup',
+      summary: `New account registered: ${formattedName} (${cleanEmail}) as ${role}`,
+      details: { role, startWithZero },
+    });
 
     if (isSupabaseActive) {
       supabaseDbService.upsertProfile(freshUser).catch(console.warn);
@@ -669,19 +782,43 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
 
     // Local / fallback login
+    const isOwner = cleanEmail.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase();
+    const effectiveRole: UserRole = isOwner ? 'admin' : (role || 'student');
+    if (isOwner) {
+      setIsMasterAdminUnlocked(true);
+      try {
+        localStorage.setItem('cv_master_admin_unlocked_v1', 'true');
+      } catch {}
+    }
+
     setUser(prev => ({
       ...prev,
       uid: prev.uid || `usr-${Date.now().toString(36)}`,
-      name: prev.name && prev.name !== 'New Auditor' ? prev.name : formattedName,
+      name: isOwner ? 'Nandani Dodeja' : (prev.name && prev.name !== 'New Auditor' ? prev.name : formattedName),
       email: cleanEmail,
-      role: role || prev.role || 'student',
+      role: effectiveRole,
     }));
     setIsAuthenticated(true);
+    activityLogger.log({
+      userEmail: cleanEmail,
+      userName: isOwner ? 'Nandani Dodeja' : formattedName,
+      userRole: effectiveRole,
+      category: 'auth',
+      action: 'auth.login',
+      summary: `User logged in with credentials: ${isOwner ? 'Nandani Dodeja' : formattedName} (${cleanEmail}) as ${effectiveRole}`,
+      details: { role: effectiveRole },
+    });
     return { success: true };
   };
 
   // Supabase Database OTP Password Reset Methods
   const requestPasswordResetOtp = async (email: string) => {
+    activityLogger.log({
+      userEmail: email,
+      category: 'auth',
+      action: 'auth.otp_request',
+      summary: `Password reset 4-digit OTP requested for ${email}`,
+    });
     return await supabaseAuthService.requestPasswordResetOtp(email);
   };
 
@@ -690,7 +827,16 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
   };
 
   const resetPasswordWithOtp = async (email: string, otp: string, newPassword: string) => {
-    return await supabaseAuthService.resetPasswordWithOtp(email, otp, newPassword);
+    const res = await supabaseAuthService.resetPasswordWithOtp(email, otp, newPassword);
+    if (res.success) {
+      activityLogger.log({
+        userEmail: email,
+        category: 'auth',
+        action: 'auth.password_reset',
+        summary: `Password successfully reset via security OTP for ${email}`,
+      });
+    }
+    return res;
   };
 
   const startFreshUser = (role: UserRole = 'student', name?: string, email?: string) => {
@@ -698,6 +844,15 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
   };
 
   const logout = async () => {
+    activityLogger.log({
+      userId: user.uid,
+      userEmail: user.email,
+      userName: user.name,
+      userRole: user.role,
+      category: 'auth',
+      action: 'auth.logout',
+      summary: `User logged out: ${user.name} (${user.email || 'guest'})`,
+    });
     if (isSupabaseActive) {
       await supabaseAuthService.signOut().catch(console.warn);
     }
@@ -759,7 +914,7 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
         triggerGamificationToast({
           type: 'xp',
           title: '+500 XP: Framework Mastered',
-          message: `Completed full syllabus for ${framework.name}`,
+          message: `Completed full syllabus for ${framework.title}`,
           xpAmount: 500,
         });
       }
@@ -891,7 +1046,7 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
       return nextUser;
     });
 
-    return { xpEarned, newBadges: newlyUnlockedBadges };
+    return { xpEarned: earnedXp, newBadges: newlyUnlockedBadges };
   }, [completedLessonIds, completedModuleIds, completedFrameworkIds, frameworks, unlockedBadgeIds, isSupabaseActive, triggerGamificationToast]);
 
   // Complete Learning Path (Idempotent +500 XP & Badge)
@@ -978,7 +1133,7 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
       return nextUser;
     });
 
-    return { xpEarned, newBadges: newlyUnlockedBadges };
+    return { xpEarned: earnedXp, newBadges: newlyUnlockedBadges };
   }, [completedLearningPathIds, unlockedBadgeIds, isSupabaseActive, triggerGamificationToast]);
 
   const isLearningPathCompleted = (pathId: string) => completedLearningPathIds.includes(pathId);
@@ -1116,6 +1271,21 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
     };
 
     setActiveExamSession(session);
+    activityLogger.log({
+      userId: user.uid,
+      userEmail: user.email,
+      userName: user.name,
+      userRole: user.role,
+      category: 'exam',
+      action: 'exam.started',
+      summary: `Started ${session.title || session.examType} Exam (${session.questions.length} questions, ${session.frameworkId.toUpperCase()})`,
+      details: {
+        examType: session.examType,
+        frameworkId: session.frameworkId,
+        questionCount: session.questions.length,
+        isUntimed: session.isUntimed,
+      },
+    });
     return session;
   };
 
@@ -1353,6 +1523,9 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
         supabaseDbService.upsertProfile(updatedUser).catch(console.warn);
         supabaseDbService.saveExamResult(result, prev.uid).catch(console.warn);
         supabaseDbService.saveUserProgress(prev.uid, {
+          completedLessons: completedLessonIds,
+          completedModules: completedModuleIds,
+          completedFrameworks: completedFrameworkIds,
           unlockedBadges: newUnlocked,
         }).catch(console.warn);
       }
@@ -1360,10 +1533,50 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
       return updatedUser;
     });
 
+    activityLogger.log({
+      userId: user.uid,
+      userEmail: user.email,
+      userName: user.name,
+      userRole: user.role,
+      category: 'exam',
+      action: 'exam.submitted',
+      summary: `Submitted ${result.frameworkTitle || result.examType} Exam: Score ${result.scorePercentage}% (${result.passed ? 'PASSED' : 'NEEDS REVIEW'}, +${result.xpEarned} XP)`,
+      details: {
+        examType: result.examType,
+        frameworkId: result.frameworkId,
+        scorePercentage: result.scorePercentage,
+        passed: result.passed,
+        correctAnswers: result.correctAnswers,
+        totalQuestions: result.totalQuestions,
+        timeSpentSeconds,
+        xpEarned: result.xpEarned,
+      },
+    });
+
     return result;
   };
 
   const cancelActiveExam = () => {
+    if (activeExamSession) {
+      const answeredCount = Object.keys(activeExamSession.selectedAnswers || {}).length;
+      activityLogger.log({
+        userId: user.uid,
+        userEmail: user.email,
+        userName: user.name,
+        userRole: user.role,
+        category: 'exam',
+        action: 'exam.canceled',
+        summary: `Canceled active exam session: ${activeExamSession.title || activeExamSession.examType} (Answered ${answeredCount} of ${activeExamSession.questions.length} questions before exit)`,
+        details: {
+          examType: activeExamSession.examType,
+          frameworkId: activeExamSession.frameworkId,
+          questionsAnswered: answeredCount,
+          totalQuestions: activeExamSession.questions.length,
+          timeRemainingSeconds: activeExamSession.timeRemainingSeconds,
+          reason: 'User exited / canceled session from exam view',
+        },
+      });
+    }
     setActiveExamSession(null);
   };
 
@@ -1435,6 +1648,16 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
     setQuestions(nextList);
     const customOnly = nextList.filter(q => q.id.startsWith('q-custom-'));
     localStorage.setItem(STORAGE_KEYS.CUSTOM_QUESTIONS, JSON.stringify(customOnly));
+    activityLogger.log({
+      userId: user.uid,
+      userEmail: user.email,
+      userName: user.name,
+      userRole: user.role,
+      category: 'admin',
+      action: 'admin.question_created',
+      summary: `Admin created exam question: "${newQ.question.slice(0, 70)}..." (${newQ.frameworkId.toUpperCase()})`,
+      details: { frameworkId: newQ.frameworkId, domain: newQ.domain, difficulty: newQ.difficulty },
+    });
   };
 
   const deleteQuestion = (id: string) => {
@@ -1503,6 +1726,13 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
         requestPasswordResetOtp,
         verifyPasswordResetOtp,
         resetPasswordWithOtp,
+        masterAdminEmail: MASTER_ADMIN_EMAIL,
+        isMasterAdmin,
+        isMasterAdminUnlocked,
+        unlockMasterAdmin,
+        lockMasterAdmin,
+        loginAsMasterAdmin,
+        logActivity,
         isSupabaseActive,
         supabaseSyncStatus,
         lastCloudSyncTime,

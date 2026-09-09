@@ -480,3 +480,85 @@ export interface ChatMessage {
   actionSuggestions?: string[];
   referenceControls?: string[];
 }
+
+// Master Admin & Omniscient User Activity Auditing Types
+export type ActivityCategory =
+  | 'auth'
+  | 'exam'
+  | 'learning'
+  | 'ai'
+  | 'compliance'
+  | 'admin'
+  | 'system';
+
+export type ActivityAction =
+  | 'auth.signup'
+  | 'auth.login'
+  | 'auth.logout'
+  | 'auth.otp_request'
+  | 'auth.password_reset'
+  | 'exam.started'
+  | 'exam.answer'
+  | 'exam.flag'
+  | 'exam.pause'
+  | 'exam.resume'
+  | 'exam.canceled'
+  | 'exam.submitted'
+  | 'lesson.completed'
+  | 'module.completed'
+  | 'framework.completed'
+  | 'path.completed'
+  | 'streak.advanced'
+  | 'badge.unlocked'
+  | 'ai.chat'
+  | 'ai.explain_mistake'
+  | 'ai.generate_scenario'
+  | 'ai.gap_remediation'
+  | 'gap.status_change'
+  | 'gap.item_update'
+  | 'admin.question_created'
+  | 'profile.update';
+
+export interface UserActivityLog {
+  id: string;
+  timestamp: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  userRole: UserRole;
+  category: ActivityCategory;
+  action: ActivityAction | string;
+  summary: string;
+  details?: Record<string, any>;
+  ipAddress?: string;
+  userAgent?: string;
+}
+
+export interface TrackedUserSummary {
+  uid: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  level: UserLevel;
+  xp: number;
+  streakDays: number;
+  totalLessonsCompleted: number;
+  totalExamsCompleted: number;
+  averageScore: number;
+  createdAt: string;
+  lastActive: string;
+  status: 'active' | 'suspended' | 'verified';
+  totalActivitiesCount: number;
+  recentAction?: string;
+}
+
+export interface AdminTelemetryStats {
+  totalUsers: number;
+  totalActivities: number;
+  examsCompleted: number;
+  examsCanceled: number;
+  aiQueriesCount: number;
+  averagePassRate: number;
+  todayActivitiesCount: number;
+}
+

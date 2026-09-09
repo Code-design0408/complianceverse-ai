@@ -53,7 +53,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [signupName, setSignupName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
-  const [signupRole, setSignupRole] = useState<UserRole>('student');
   const [targetFramework, setTargetFramework] = useState('soc2');
   const [startWithZero, setStartWithZero] = useState(true);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
@@ -61,7 +60,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   // Sign In Form State
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  const [loginRole, setLoginRole] = useState<UserRole>('student');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
@@ -183,7 +181,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
     setIsLoading(true);
     try {
-      const res = await signup(signupName, signupEmail, signupRole, startWithZero, signupPassword);
+      const resolvedRole: UserRole = signupEmail.trim().toLowerCase() === 'nandanidodeja368@gmail.com' ? 'admin' : 'student';
+      const res = await signup(signupName, signupEmail, resolvedRole, startWithZero, signupPassword);
       if (!res.success) {
         setFormError(res.error || 'Failed to create account');
         setIsLoading(false);
@@ -209,7 +208,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
     setIsLoading(true);
     try {
-      const res = await loginWithCredentials(loginEmail, loginRole, loginPassword);
+      const resolvedRole: UserRole = loginEmail.trim().toLowerCase() === 'nandanidodeja368@gmail.com' ? 'admin' : 'student';
+      const res = await loginWithCredentials(loginEmail, resolvedRole, loginPassword);
       if (!res.success) {
         setFormError(res.error || 'Failed to sign in. Please verify your credentials.');
         setIsLoading(false);
@@ -495,53 +495,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 </div>
               </div>
 
-              {/* Role Selection */}
-              <div className="space-y-1.5 pt-1">
-                <label className="block text-xs font-semibold text-text-secondary">
-                  Select Auditor Profile & Role
-                </label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setSignupRole('student')}
-                    className={`p-2 rounded-xl border text-center transition-all backdrop-blur-sm ${
-                      signupRole === 'student'
-                        ? 'border-primary-light bg-primary/25 text-white shadow-md'
-                        : 'border-white/10 bg-white/[0.03] text-text-secondary hover:border-white/20'
-                    }`}
-                  >
-                    <span className="block text-xs font-bold truncate">Student</span>
-                    <span className="block text-[10px] text-text-muted mt-0.5 truncate">Analyst</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setSignupRole('instructor')}
-                    className={`p-2 rounded-xl border text-center transition-all backdrop-blur-sm ${
-                      signupRole === 'instructor'
-                        ? 'border-primary-light bg-primary/25 text-white shadow-md'
-                        : 'border-white/10 bg-white/[0.03] text-text-secondary hover:border-white/20'
-                    }`}
-                  >
-                    <span className="block text-xs font-bold truncate">Instructor</span>
-                    <span className="block text-[10px] text-text-muted mt-0.5 truncate">Lead Auditor</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setSignupRole('admin')}
-                    className={`p-2 rounded-xl border text-center transition-all backdrop-blur-sm ${
-                      signupRole === 'admin'
-                        ? 'border-primary-light bg-primary/25 text-white shadow-md'
-                        : 'border-white/10 bg-white/[0.03] text-text-secondary hover:border-white/20'
-                    }`}
-                  >
-                    <span className="block text-xs font-bold truncate">Admin</span>
-                    <span className="block text-[10px] text-text-muted mt-0.5 truncate">Governance</span>
-                  </button>
-                </div>
-              </div>
-
               {/* Primary Target Framework */}
               <div className="space-y-1">
                 <label className="block text-xs font-semibold text-text-secondary">
@@ -665,22 +618,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-              </div>
-
-              {/* Role Selection for Login */}
-              <div className="space-y-1">
-                <label className="block text-xs font-semibold text-text-secondary">
-                  Role Session Type
-                </label>
-                <select
-                  value={loginRole}
-                  onChange={(e) => setLoginRole(e.target.value as UserRole)}
-                  className="w-full rounded-2xl border border-white/10 bg-[#0f0f14] px-3.5 py-2.5 text-xs text-text-primary focus:border-primary-light focus:outline-none backdrop-blur-md"
-                >
-                  <option value="student">Student / GRC Analyst</option>
-                  <option value="instructor">Instructor / Lead Auditor</option>
-                  <option value="admin">Platform Administrator</option>
-                </select>
               </div>
 
               <div className="flex items-center justify-between text-xs text-text-muted">
