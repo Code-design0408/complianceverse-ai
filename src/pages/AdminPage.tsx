@@ -84,12 +84,12 @@ export const AdminPage: React.FC = () => {
 
   // Telemetry stats
   const [telemetryStats, setTelemetryStats] = useState<AdminTelemetryStats>({
-    totalUsers: 5,
+    totalUsers: 0,
     totalActivities: 0,
     examsCompleted: 0,
     examsCanceled: 0,
     aiQueriesCount: 0,
-    averagePassRate: 85,
+    averagePassRate: 0,
     todayActivitiesCount: 0,
   });
 
@@ -1054,7 +1054,9 @@ export const AdminPage: React.FC = () => {
                   ) : filteredUsers.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="p-8 text-center text-text-muted">
-                        No registered users found matching "{userSearch}".
+                        {userSearch
+                          ? `No registered users found matching "${userSearch}".`
+                          : 'No registered users at this time (0 users). Real accounts will appear here once learners register or sign in.'}
                       </td>
                     </tr>
                   ) : (

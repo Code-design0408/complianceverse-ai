@@ -1,0 +1,19 @@
+# ComplianceVerse AI robots.txt
+# Created by Nandani Dodeja
+User-agent: *
+Allow: /
+Allow: /welcome
+Allow: /library
+Allow: /frameworks
+Allow: /matrix
+Allow: /comparison
+Allow: /about
+
+# Disallow private user sessions, authenticated dashboards & admin controls
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /settings
+Disallow: /active-exam
+Disallow: /api/
+
+Sitemap: https://complianceverse-ai.vercel.app/sitemap.xml

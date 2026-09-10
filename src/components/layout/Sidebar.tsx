@@ -121,15 +121,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {!isCollapsed && (
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-heading text-base font-extrabold tracking-tight text-text-primary truncate">
-                    C.<span className="text-primary-light">V</span>
-                  </span>
-                  <span className="rounded-full bg-primary/20 border border-primary/30 px-1.5 py-0.2 text-[9px] font-bold text-primary-light tracking-wider uppercase">
-                    GRC AI
+                  <span className="font-heading text-sm font-extrabold tracking-tight text-text-primary truncate">
+                    ComplianceVerse <span className="text-primary-light">AI</span>
                   </span>
                 </div>
                 <p className="text-[10px] text-text-muted truncate">
-                  Enterprise Security & Audit
+                  by Nandani Dodeja
                 </p>
               </div>
             )}
@@ -395,6 +392,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <Sparkles className="h-3.5 w-3.5" />
               {!isCollapsed && <span>Sign In / Sign Up</span>}
             </button>
+          </div>
+        )}
+
+        {!isCollapsed && (
+          <div className="pt-2.5 mt-2 border-t border-white/10 flex items-center justify-between text-[10px] text-text-muted px-1">
+            <span className="font-semibold text-text-secondary">ComplianceVerse AI</span>
+            <a
+              href="https://nandani-dodeja-portfolio.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-primary-light transition-colors underline decoration-white/20 underline-offset-2"
+            >
+              by Nandani Dodeja
+            </a>
           </div>
         )}
       </div>

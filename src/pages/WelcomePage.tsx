@@ -260,7 +260,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
         <div className="relative z-10 max-w-3xl space-y-5">
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1 text-xs font-semibold text-primary-light">
             <Sparkles className="h-3.5 w-3.5 animate-pulse" />
-            <span>Interactive GRC & Cybersecurity Academy</span>
+            <span>ComplianceVerse AI — Created by Nandani Dodeja</span>
           </div>
 
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight font-heading leading-tight">
@@ -268,7 +268,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
           </h1>
 
           <p className="text-base sm:text-lg text-text-secondary leading-relaxed">
-            Your end-to-end command center for mastering information security compliance frameworks, simulated auditor exams, dynamic gap remediations, and real-time AI compliance guidance.
+            Your end-to-end command center for mastering information security compliance frameworks, simulated auditor exams, dynamic gap remediations, and real-time AI compliance guidance. Created and engineered by <strong className="text-text-primary">Nandani Dodeja</strong>.
           </p>
 
           <div className="flex flex-wrap items-center gap-3.5 pt-2">

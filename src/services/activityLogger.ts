@@ -125,12 +125,12 @@ class ActivityLoggingService {
       return await res.json();
     } catch (err) {
       return {
-        totalUsers: 5,
+        totalUsers: 0,
         totalActivities: this.localLogs.length,
-        examsCompleted: 12,
-        examsCanceled: 2,
-        aiQueriesCount: 8,
-        averagePassRate: 85,
+        examsCompleted: 0,
+        examsCanceled: 0,
+        aiQueriesCount: 0,
+        averagePassRate: 0,
         todayActivitiesCount: this.localLogs.length,
       };
     }

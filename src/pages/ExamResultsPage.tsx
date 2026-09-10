@@ -137,6 +137,20 @@ export const ExamResultsPage: React.FC<ExamResultsPageProps> = ({
   return (
     <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-300">
       
+      {/* Report Header Metadata */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 border-b border-white/10 pb-4 text-xs text-text-muted">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-primary-light" />
+          <span className="font-heading font-bold text-text-primary text-sm">
+            ComplianceVerse <span className="text-primary-light">AI</span>
+          </span>
+          <span className="text-text-muted">• Audit Readiness Performance Report</span>
+        </div>
+        <div className="text-[11px] text-text-secondary">
+          Created by <strong className="text-text-primary">Nandani Dodeja</strong>
+        </div>
+      </div>
+
       {/* Top Banner: Pass / Fail */}
       <div
         className={`rounded-3xl border p-6 sm:p-8 text-center space-y-4 shadow-2xl backdrop-blur-2xl ${
@@ -501,6 +515,16 @@ export const ExamResultsPage: React.FC<ExamResultsPageProps> = ({
             </div>
           )}
         </div>
+      </div>
+
+      {/* Educational Verification & Creator Disclaimer */}
+      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-center text-xs text-text-muted space-y-1">
+        <p className="font-semibold text-text-secondary">
+          ComplianceVerse AI &copy; 2026 • Created by Nandani Dodeja
+        </p>
+        <p className="text-[11px] leading-relaxed max-w-xl mx-auto">
+          Notice: This performance diagnostic is generated exclusively for educational, practice, and skill benchmarking purposes. It does not constitute a formal CPA audit attestation, ISO conformity certificate, or legal regulatory finding.
+        </p>
       </div>
 
     </div>

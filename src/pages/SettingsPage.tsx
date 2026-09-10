@@ -9,7 +9,10 @@ import {
   CheckCircle2,
   Save,
   RotateCcw,
-  Sparkles
+  Sparkles,
+  Globe,
+  Linkedin,
+  ExternalLink
 } from 'lucide-react';
 import { useAuthAndData } from '../context/AuthAndDataContext';
 import { UserRole } from '../types';
@@ -242,6 +245,61 @@ export const SettingsPage: React.FC = () => {
         </div>
 
       </form>
+
+      {/* Creator & Product Information Card */}
+      <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-8 space-y-5 backdrop-blur-xl shadow-lg">
+        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+          <div className="flex items-center gap-2 text-text-primary font-bold text-sm">
+            <ShieldCheck className="h-4 w-4 text-primary-light" />
+            <span>Product & Creator Information</span>
+          </div>
+          <span className="rounded-full bg-primary/20 border border-primary/30 px-2.5 py-0.5 text-[10px] font-semibold text-primary-light">
+            ComplianceVerse AI
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+          <div className="space-y-1">
+            <span className="text-text-muted block text-[11px]">Creator & Developer</span>
+            <span className="font-bold text-text-primary text-sm">Nandani Dodeja</span>
+            <p className="text-[11px] text-text-muted mt-1 leading-relaxed">
+              Creator and lead software developer of ComplianceVerse AI.
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-text-muted block text-[11px]">Product Purpose</span>
+            <span className="font-bold text-text-primary text-sm">ComplianceVerse AI</span>
+            <p className="text-[11px] text-text-muted mt-1 leading-relaxed">
+              AI-powered cybersecurity, compliance, risk and GRC learning platform.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 pt-2">
+          <a
+            href="https://nandani-dodeja-portfolio.vercel.app/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 px-3.5 py-2 text-xs font-semibold text-text-primary hover:text-primary-light transition-all backdrop-blur-sm"
+          >
+            <Globe className="h-3.5 w-3.5 text-primary-light" />
+            <span>Developer Portfolio</span>
+            <ExternalLink className="h-3 w-3 opacity-60" />
+          </a>
+
+          <a
+            href="https://www.linkedin.com/in/nandani-dodeja-28b81339a"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 px-3.5 py-2 text-xs font-semibold text-text-primary hover:text-primary-light transition-all backdrop-blur-sm"
+          >
+            <Linkedin className="h-3.5 w-3.5 text-[#0A66C2]" />
+            <span>LinkedIn Profile</span>
+            <ExternalLink className="h-3 w-3 opacity-60" />
+          </a>
+        </div>
+      </div>
 
       {/* Reset & Fresh Start Zone */}
       <div className="rounded-3xl border border-rose-500/30 bg-rose-500/10 p-6 sm:p-8 space-y-4 backdrop-blur-xl shadow-lg">

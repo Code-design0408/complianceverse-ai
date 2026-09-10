@@ -54,7 +54,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
               {getTabTitle(currentTab)}
             </span>
             <span className="text-[9px] text-text-muted leading-tight">
-              ComplianceVerse AI
+              ComplianceVerse AI • by Nandani Dodeja
             </span>
           </div>
         </div>

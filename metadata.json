@@ -1,6 +1,6 @@
 {
-  "name": "C.V",
-  "description": "Enterprise Cybersecurity & GRC Compliance Learning Platform with interactive exams, deterministic gamification, and Comply AI assistant.",
+  "name": "ComplianceVerse AI — by Nandani Dodeja",
+  "description": "AI-powered cybersecurity, compliance, risk and GRC learning platform created by Nandani Dodeja.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

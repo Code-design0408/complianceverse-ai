@@ -14,7 +14,11 @@ import {
   Flame,
   CheckCircle2,
   Lock,
-  Compass
+  Compass,
+  Globe,
+  Linkedin,
+  ExternalLink,
+  User
 } from 'lucide-react';
 import { useAuthAndData } from '../context/AuthAndDataContext';
 import { UserRole } from '../types';
@@ -89,22 +93,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab }) => {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
           
           {/* Top Pill */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-gradient-to-r from-primary/20 via-primary-dark/30 to-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary-light shadow-sm shadow-primary/20 mb-6 animate-in fade-in slide-in-from-bottom-2">
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-gradient-to-r from-primary/20 via-primary-dark/30 to-primary/10 px-4 py-1.5 text-xs font-semibold text-primary-light shadow-sm shadow-primary/20 mb-6 animate-in fade-in slide-in-from-bottom-2">
             <Sparkles className="h-3.5 w-3.5 text-primary-light animate-pulse" />
-            <span>Next-Gen GRC & Cybersecurity Learning Platform</span>
+            <span>ComplianceVerse AI — Created by Nandani Dodeja</span>
           </div>
 
           {/* Main Title */}
           <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-text-primary max-w-4xl mx-auto leading-tight">
-            Master Enterprise Compliance & Security Certifications with{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-light via-primary to-accent-light">
-              AI Intelligence
+            ComplianceVerse <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-light via-primary to-accent-light">AI</span>
+            <span className="block text-2xl sm:text-3xl lg:text-4xl font-bold text-text-secondary mt-3">
+              AI-Powered Cybersecurity, Risk & GRC Learning
             </span>
           </h1>
 
           {/* Subtitle */}
           <p className="mt-6 text-base sm:text-lg text-text-secondary max-w-2xl mx-auto leading-relaxed">
-            The comprehensive training simulator for cloud security, GRC analysts, and IT auditors. Master SOC 2, ISO 27001, NIST CSF, HIPAA, and PCI-DSS with deterministic exam scoring, gap analysis, and real-world audit scenarios.
+            The comprehensive training simulator for cloud security, GRC analysts, and IT auditors created by <span className="text-text-primary font-semibold">Nandani Dodeja</span>. Master SOC 2, ISO 27001, NIST CSF, HIPAA, and PCI-DSS with deterministic exam scoring, gap analysis, and real-world audit scenarios.
           </p>
 
           {/* Auth & Tour Actions */}
@@ -211,6 +215,89 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab }) => {
                 </div>
               );
             })}
+          </div>
+        </div>
+      </section>
+
+      {/* About Project & Creator Section */}
+      <section className="py-16 border-t border-white/10 bg-white/[0.02]">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto mb-12">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1 text-xs font-semibold text-primary-light mb-3">
+              <User className="h-3.5 w-3.5" />
+              <span>Project & Creator Information</span>
+            </div>
+            <h2 className="font-heading text-2xl sm:text-3xl font-extrabold text-text-primary">
+              About ComplianceVerse AI
+            </h2>
+            <p className="mt-3 text-sm text-text-secondary leading-relaxed">
+              An independent, purpose-built educational platform engineered to make modern cybersecurity frameworks, GRC workflows, and audit simulations accessible and rigorous.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            {/* Project Specs */}
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur-xl shadow-xl space-y-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/20 text-primary-light border border-primary/30">
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+              <h3 className="font-heading text-base font-bold text-text-primary">The Project</h3>
+              <p className="text-xs text-text-muted leading-relaxed">
+                <strong className="text-text-primary font-semibold">ComplianceVerse AI</strong> is an interactive cybersecurity, compliance, risk, and GRC learning platform designed to bridge technical security and audit governance.
+              </p>
+            </div>
+
+            {/* Creator Attribution */}
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur-xl shadow-xl space-y-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/20 text-primary-light border border-primary/30">
+                <User className="h-5 w-5" />
+              </div>
+              <h3 className="font-heading text-base font-bold text-text-primary">Creator & Developer</h3>
+              <p className="text-xs text-text-muted leading-relaxed">
+                Created and developed by <strong className="text-text-primary font-semibold">Nandani Dodeja</strong> as a modern, full-featured educational software product with real-time AI assistance and deterministic certification assessments.
+              </p>
+            </div>
+
+            {/* Verified Professional Links */}
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur-xl shadow-xl space-y-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/20 text-primary-light border border-primary/30">
+                <Globe className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-heading text-base font-bold text-text-primary">Creator Profile</h3>
+                <p className="text-xs text-text-muted mt-1">
+                  Connect with Nandani Dodeja or explore the developer portfolio:
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-2 pt-1">
+                <a
+                  href="https://nandani-dodeja-portfolio.vercel.app/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 px-3.5 py-2 text-xs font-semibold text-text-primary hover:text-primary-light transition-all"
+                >
+                  <span className="flex items-center gap-2">
+                    <Globe className="h-3.5 w-3.5 text-primary-light" />
+                    <span>View Creator Portfolio</span>
+                  </span>
+                  <ExternalLink className="h-3 w-3 opacity-60" />
+                </a>
+
+                <a
+                  href="https://www.linkedin.com/in/nandani-dodeja-28b81339a"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 px-3.5 py-2 text-xs font-semibold text-text-primary hover:text-primary-light transition-all"
+                >
+                  <span className="flex items-center gap-2">
+                    <Linkedin className="h-3.5 w-3.5 text-[#0A66C2]" />
+                    <span>Connect on LinkedIn</span>
+                  </span>
+                  <ExternalLink className="h-3 w-3 opacity-60" />
+                </a>
+              </div>
+            </div>
           </div>
         </div>
       </section>

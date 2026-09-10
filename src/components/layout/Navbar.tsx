@@ -80,15 +80,15 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-heading text-lg font-bold tracking-tight text-text-primary">
-                  C.<span className="text-primary-light">V</span>
+                <span className="font-heading text-base sm:text-lg font-extrabold tracking-tight text-text-primary">
+                  ComplianceVerse <span className="text-primary-light">AI</span>
                 </span>
-                <span className="rounded-full bg-primary/20 border border-primary/30 px-2 py-0.5 text-[9px] font-bold text-primary-light tracking-wider uppercase">
+                <span className="rounded-full bg-primary/20 border border-primary/30 px-1.5 py-0.5 text-[9px] font-bold text-primary-light tracking-wider uppercase hidden xl:inline-block">
                   GRC
                 </span>
               </div>
-              <p className="text-[11px] text-text-muted hidden sm:block">
-                SOC 2 • ISO 27001 • NIST CSF • HIPAA • PCI-DSS
+              <p className="text-[10px] text-text-muted hidden sm:block leading-none mt-0.5">
+                by <span className="text-text-secondary font-medium">Nandani Dodeja</span>
               </p>
             </div>
           </button>

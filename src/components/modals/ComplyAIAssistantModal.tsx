@@ -28,7 +28,7 @@ export const ComplyAIAssistantModal: React.FC = () => {
     {
       id: 'msg-welcome',
       sender: 'assistant',
-      text: `👋 **Welcome to Comply AI!** I am your expert cybersecurity, privacy, and GRC educational copilot.\n\nAsk me anything about **SOC 2 Type II, ISO/IEC 27001:2022, NIST CSF 2.0, HIPAA, PCI-DSS v4.0, or GDPR**, or try generating an interactive audit scenario!`,
+      text: `👋 **Welcome to ComplianceVerse AI Assistant!** I am your expert cybersecurity, privacy, and GRC educational copilot.\n\nAsk me anything about **SOC 2 Type II, ISO/IEC 27001:2022, NIST CSF 2.0, HIPAA, PCI-DSS v4.0, or GDPR**, or try generating an interactive audit scenario!`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
@@ -208,14 +208,14 @@ export const ComplyAIAssistantModal: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-heading text-base font-bold text-text-primary">
-                  Comply AI Copilot
+                  ComplianceVerse AI Assistant
                 </h3>
                 <span className="rounded-full bg-primary/20 border border-primary/30 px-2 py-0.5 text-[9px] font-bold text-primary-light uppercase tracking-wider">
                   Gemini 3.7
                 </span>
               </div>
               <p className="text-xs text-text-muted">
-                {aiModalContext?.framework ? `Active Topic: ${aiModalContext.framework}` : 'Cybersecurity & GRC Educational Intelligence'}
+                {aiModalContext?.framework ? `Active Topic: ${aiModalContext.framework}` : 'ComplianceVerse AI • by Nandani Dodeja'}
               </p>
             </div>
           </div>

@@ -463,17 +463,23 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
         setSupabaseSyncStatus('syncing');
         const session = await supabaseAuthService.getSession();
         if (session && session.user) {
-          const cloudProfile = await supabaseDbService.getProfile(session.user.id);
+          let cloudProfile = await supabaseDbService.getProfile(session.user.id, 2);
+          if (!cloudProfile) {
+            // Profile might not exist yet; self-heal with ensureProfileExists
+            const derivedName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email?.split('@')[0] || user.name;
+            cloudProfile = await supabaseDbService.ensureProfileExists(session.user.id, {
+              ...user,
+              uid: session.user.id,
+              name: derivedName,
+              email: session.user.email || user.email,
+              role: (session.user.user_metadata?.role as UserRole) || user.role,
+              jobTitle: session.user.user_metadata?.job_title || session.user.user_metadata?.jobTitle || user.jobTitle,
+            });
+          }
+
           if (cloudProfile) {
             setUser(cloudProfile);
             setIsAuthenticated(true);
-          } else {
-            // Profile might not exist yet, push current
-            await supabaseDbService.upsertProfile({
-              ...user,
-              uid: session.user.id,
-              email: session.user.email || user.email,
-            });
           }
 
           // Fetch cloud progress
@@ -628,6 +634,7 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
 
     // Try Supabase Sign Up if configured and password provided
+    let cloudProfile: UserProfile | null = null;
     if (isSupabaseActive && password) {
       setSupabaseSyncStatus('syncing');
       const { data, error } = await supabaseAuthService.signUp(cleanEmail, password, { name: formattedName, role: effectiveRole });
@@ -637,11 +644,13 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
       }
       if (data?.user) {
         finalUid = data.user.id;
+        // Fetch the profile created by database trigger in public.profiles using authenticated user's UUID
+        cloudProfile = await supabaseDbService.getProfile(data.user.id, 3);
       }
       setSupabaseSyncStatus('synced');
     }
 
-    const freshUser: UserProfile = {
+    const freshUser: UserProfile = cloudProfile || {
       uid: finalUid,
       name: isOwner ? 'Nandani Dodeja' : formattedName,
       email: cleanEmail,
@@ -681,7 +690,7 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
     });
 
     if (isSupabaseActive) {
-      supabaseDbService.upsertProfile(freshUser).catch(console.warn);
+      supabaseDbService.ensureProfileExists(finalUid, freshUser).catch(console.warn);
       supabaseDbService.saveUserProgress(finalUid, {
         completedLessons: startWithZero ? [] : completedLessonIds,
         completedModules: startWithZero ? [] : completedModuleIds,
@@ -721,19 +730,25 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
       const { data, error } = await supabaseAuthService.signIn(cleanEmail, password);
       if (error) {
         setSupabaseSyncStatus('error');
-        return { success: false, error: error.message };
+        let errorMsg = error.message;
+        if (errorMsg.toLowerCase().includes('email not confirmed')) {
+          errorMsg = 'Your email address has not been confirmed yet in Supabase Auth. Please check your inbox or disable "Confirm email" in your Supabase Auth settings.';
+        } else if (errorMsg.toLowerCase().includes('invalid login credentials')) {
+          errorMsg = 'Invalid email or password. Please check your credentials or register a new account.';
+        }
+        return { success: false, error: errorMsg };
       }
 
       if (data?.user) {
-        const cloudProfile = await supabaseDbService.getProfile(data.user.id);
+        const cloudProfile = await supabaseDbService.getProfile(data.user.id, 2);
         if (cloudProfile) {
           setUser(cloudProfile);
         } else {
           const newProfile: UserProfile = {
             uid: data.user.id,
-            name: formattedName,
+            name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || formattedName,
             email: cleanEmail,
-            role: role || 'student',
+            role: (data.user.user_metadata?.role as UserRole) || role || 'student',
             level: 'Beginner',
             xp: 0,
             streakDays: 0,
@@ -742,9 +757,10 @@ export const AuthAndDataProvider: React.FC<{ children: ReactNode }> = ({ childre
             totalExamsCompleted: 0,
             averageScore: 0,
             createdAt: new Date().toISOString(),
+            jobTitle: data.user.user_metadata?.job_title || data.user.user_metadata?.jobTitle || 'Security Analyst / Auditor',
           };
-          setUser(newProfile);
-          supabaseDbService.upsertProfile(newProfile).catch(console.warn);
+          const resolved = await supabaseDbService.ensureProfileExists(data.user.id, newProfile);
+          setUser(resolved || newProfile);
         }
 
         // Pull user progress

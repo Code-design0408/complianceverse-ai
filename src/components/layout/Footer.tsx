@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Lock, AlertCircle, FileCheck, CheckCircle2 } from 'lucide-react';
+import { Shield, Lock, AlertCircle, FileCheck, CheckCircle2, Globe, Linkedin, ExternalLink } from 'lucide-react';
 import { useAuthAndData } from '../../context/AuthAndDataContext';
 
 interface FooterProps {
@@ -35,20 +35,60 @@ export const Footer: React.FC<FooterProps> = ({ setCurrentTab }) => {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pb-8 border-b border-white/10">
           
-          {/* Col 1: Platform identity */}
+          {/* Col 1: Platform identity & Creator */}
           <div className="md:col-span-2 space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-primary/20 text-primary-light border border-white/15 backdrop-blur-sm">
-                <Shield className="h-4 w-4" />
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-primary-dark to-black p-0.5 shadow-md shadow-primary/25 border border-white/15">
+                <div className="flex h-full w-full items-center justify-center rounded-[10px] bg-[#0a0a10]">
+                  <Shield className="h-4 w-4 text-primary-light" />
+                </div>
               </div>
-              <span className="font-heading font-bold text-text-primary text-base">
-                C.<span className="text-primary-light">V</span>
-              </span>
+              <div>
+                <span className="font-heading font-extrabold text-text-primary text-base tracking-tight">
+                  ComplianceVerse <span className="text-primary-light">AI</span>
+                </span>
+                <span className="block text-[11px] text-text-muted">
+                  Cybersecurity • Compliance • AI • GRC
+                </span>
+              </div>
             </div>
+
             <p className="text-xs text-text-muted max-w-md leading-relaxed">
               The premier interactive learning management and exam certification simulator for cybersecurity, privacy, and GRC professionals. Master SOC 2, ISO 27001, NIST CSF, HIPAA, PCI-DSS, and GDPR with deterministic scoring and AI-guided remediation.
             </p>
-            <div className="flex flex-wrap gap-2 pt-1">
+
+            {/* Creator Links & Attribution */}
+            <div className="pt-1 flex flex-wrap items-center gap-3">
+              <span className="text-xs font-semibold text-text-primary">
+                Created by Nandani Dodeja
+              </span>
+              <div className="flex items-center gap-2">
+                <a
+                  href="https://nandani-dodeja-portfolio.vercel.app/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:text-primary-light transition-all"
+                  aria-label="View Creator Portfolio"
+                >
+                  <Globe className="h-3 w-3 text-primary-light" />
+                  <span>Portfolio</span>
+                  <ExternalLink className="h-2.5 w-2.5 opacity-60" />
+                </a>
+                <a
+                  href="https://www.linkedin.com/in/nandani-dodeja-28b81339a"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:text-primary-light transition-all"
+                  aria-label="Connect on LinkedIn"
+                >
+                  <Linkedin className="h-3 w-3 text-[#0A66C2]" />
+                  <span>LinkedIn</span>
+                  <ExternalLink className="h-2.5 w-2.5 opacity-60" />
+                </a>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 pt-2">
               {frameworksList.map((f) => (
                 <button
                   key={f.id}
@@ -136,7 +176,7 @@ export const Footer: React.FC<FooterProps> = ({ setCurrentTab }) => {
             </ul>
           </div>
 
-          {/* Col 3: Compliance & Standards */}
+          {/* Col 3: Certification Engine */}
           <div>
             <h4 className="text-xs font-semibold uppercase tracking-wider text-text-primary mb-3">
               Certification Engine
@@ -167,14 +207,15 @@ export const Footer: React.FC<FooterProps> = ({ setCurrentTab }) => {
           <div className="flex items-center gap-2 max-w-2xl">
             <AlertCircle className="h-4 w-4 text-amber-400 shrink-0" />
             <p className="text-[11px] leading-tight">
-              <strong>Educational Disclaimer:</strong> C.V provides educational guidance, practice assessments, and learning simulations. This platform does not constitute official legal, regulatory, certified CPA audit, or formal certification attestation.
+              <strong>Educational Disclaimer:</strong> ComplianceVerse AI is an educational and decision-support platform created by Nandani Dodeja. It does not constitute legal advice, official certification, formal audit, or regulatory approval.
             </p>
           </div>
-          <p className="text-[11px] shrink-0">
-            &copy; {new Date().getFullYear()} C.V. All rights reserved.
+          <p className="text-[11px] shrink-0 text-center sm:text-right">
+            &copy; 2026 ComplianceVerse AI. Created by Nandani Dodeja.
           </p>
         </div>
       </div>
     </footer>
   );
 };
+

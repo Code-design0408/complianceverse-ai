@@ -40,16 +40,21 @@ export const getSupabase = (): SupabaseClient | null => {
 };
 
 // SQL Schema for Supabase SQL Editor (Available for reference / admin copy)
-export const SUPABASE_SQL_SCHEMA = `-- C.V GRC & Cybersecurity Learning Platform - Supabase Database Schema
--- Copy and run this script inside your Supabase Project's SQL Editor (https://supabase.com/dashboard/project/_/sql)
+export const SUPABASE_PROFILE_TRIGGER_SQL = `-- ====================================================================
+-- ComplianceVerse AI — by Nandani Dodeja
+-- SUPABASE MIGRATION: User Profile Auto-Creation Trigger & Backfill
+-- Run this in your Supabase SQL Editor: https://supabase.com/dashboard/project/_/sql
+-- ====================================================================
 
+-- 1. Ensure required extensions exist
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 1. Create Profiles Table (Synced with Supabase Auth users)
+-- 2. Ensure public.profiles table exists with all standard columns
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
-  email TEXT NOT NULL UNIQUE,
+  full_name TEXT,
+  email TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('student', 'instructor', 'admin')),
   level TEXT NOT NULL DEFAULT 'Beginner',
   xp INTEGER NOT NULL DEFAULT 0,
@@ -62,15 +67,367 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   company TEXT DEFAULT 'Cybersecurity Practice',
   experience_level TEXT DEFAULT 'Entry Level',
   bio TEXT DEFAULT 'Pursuing GRC and Information Security audit credentials.',
+  avatar_url TEXT DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Safely add any columns that might be missing if public.profiles already existed
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS full_name TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT '';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS job_title TEXT DEFAULT 'Security Analyst / Auditor';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS company TEXT DEFAULT 'Cybersecurity Practice';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS experience_level TEXT DEFAULT 'Entry Level';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT 'Pursuing GRC and Information Security audit credentials.';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS streak_days INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS xp INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS level TEXT NOT NULL DEFAULT 'Beginner';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS total_lessons_completed INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS total_exams_completed INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS average_score NUMERIC(5,2) NOT NULL DEFAULT 0.00;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS last_active_date DATE DEFAULT CURRENT_DATE;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- 3. Ensure public.user_progress table exists (for badges, modules, lessons tracking)
+CREATE TABLE IF NOT EXISTS public.user_progress (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  completed_lessons JSONB NOT NULL DEFAULT '[]'::jsonb,
+  completed_modules JSONB NOT NULL DEFAULT '[]'::jsonb,
+  completed_frameworks JSONB NOT NULL DEFAULT '[]'::jsonb,
+  unlocked_badges JSONB NOT NULL DEFAULT '["badge-welcome"]'::jsonb,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 4. Enable Row Level Security (RLS) on public.profiles and public.user_progress
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_progress ENABLE ROW LEVEL SECURITY;
+
+-- 5. Safe, idempotent RLS policies on public.profiles
+DROP POLICY IF EXISTS "Profiles are viewable by everyone" ON public.profiles;
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
+CREATE POLICY "Users can view own profile"
+  ON public.profiles
+  FOR SELECT
+  USING (
+    auth.uid() = id
+    OR LOWER(COALESCE((SELECT email FROM auth.users WHERE id = auth.uid()), '')) = 'nandanidodeja368@gmail.com'
+  );
+
+-- INSERT: Authenticated users can insert their own profile matching auth.uid()
+DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
+CREATE POLICY "Users can insert own profile"
+  ON public.profiles
+  FOR INSERT
+  WITH CHECK (auth.uid() = id);
+
+-- UPDATE: Authenticated users can update their own profile matching auth.uid()
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+CREATE POLICY "Users can update own profile"
+  ON public.profiles
+  FOR UPDATE
+  USING (auth.uid() = id)
+  WITH CHECK (auth.uid() = id);
+
+-- RLS policies on public.user_progress
+DROP POLICY IF EXISTS "Users can view own progress" ON public.user_progress;
+CREATE POLICY "Users can view own progress"
+  ON public.user_progress
+  FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert own progress" ON public.user_progress;
+CREATE POLICY "Users can insert own progress"
+  ON public.user_progress
+  FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update own progress" ON public.user_progress;
+CREATE POLICY "Users can update own progress"
+  ON public.user_progress
+  FOR UPDATE
+  USING (auth.uid() = user_id);
+
+-- 6. Role Escalation Protection Trigger
+CREATE OR REPLACE FUNCTION public.enforce_profile_role_protection()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF NEW.role IS DISTINCT FROM OLD.role THEN
+    IF NOT (
+      LOWER(COALESCE((SELECT email FROM auth.users WHERE id = auth.uid()), '')) = 'nandanidodeja368@gmail.com'
+      OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    ) THEN
+      NEW.role := OLD.role;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.enforce_profile_role_protection() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.enforce_profile_role_protection() FROM anon;
+REVOKE ALL ON FUNCTION public.enforce_profile_role_protection() FROM authenticated;
+
+DROP TRIGGER IF EXISTS trg_protect_profile_role ON public.profiles;
+CREATE TRIGGER trg_protect_profile_role
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION public.enforce_profile_role_protection();
+
+-- 7. Robust PostgreSQL Trigger Function on auth.users
+-- SECURITY DEFINER allows the function to execute with elevated privileges
+-- SET search_path = public, pg_temp prevents search_path hijacking
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_name TEXT;
+  v_role TEXT;
+  v_job_title TEXT;
+  v_avatar TEXT;
+BEGIN
+  -- Extract user display name safely from raw_user_meta_data or fallback to email handle
+  v_name := COALESCE(
+    NULLIF(TRIM(NEW.raw_user_meta_data->>'full_name'), ''),
+    NULLIF(TRIM(NEW.raw_user_meta_data->>'name'), ''),
+    split_part(COALESCE(NEW.email, 'auditor@complianceverse.ai'), '@', 1)
+  );
+
+  -- Role: Never trust client-provided privileged roles!
+  v_role := CASE
+    WHEN LOWER(COALESCE(NEW.email, '')) = 'nandanidodeja368@gmail.com' THEN 'admin'
+    WHEN LOWER(NEW.raw_user_meta_data->>'role') IN ('student', 'instructor') THEN LOWER(NEW.raw_user_meta_data->>'role')
+    ELSE 'student'
+  END;
+
+  v_job_title := COALESCE(
+    NULLIF(TRIM(NEW.raw_user_meta_data->>'job_title'), ''),
+    NULLIF(TRIM(NEW.raw_user_meta_data->>'jobTitle'), ''),
+    'Security Analyst / Auditor'
+  );
+
+  v_avatar := COALESCE(NEW.raw_user_meta_data->>'avatar_url', '');
+
+  -- Insert profile row safely with conflict handling
+  INSERT INTO public.profiles (
+    id,
+    name,
+    full_name,
+    email,
+    role,
+    level,
+    xp,
+    streak_days,
+    last_active_date,
+    total_lessons_completed,
+    total_exams_completed,
+    average_score,
+    job_title,
+    avatar_url,
+    created_at,
+    updated_at
+  )
+  VALUES (
+    NEW.id,
+    v_name,
+    v_name,
+    COALESCE(NEW.email, ''),
+    v_role,
+    'Beginner',
+    0,
+    1,
+    CURRENT_DATE,
+    0,
+    0,
+    0.00,
+    v_job_title,
+    v_avatar,
+    COALESCE(NEW.created_at, NOW()),
+    NOW()
+  )
+  ON CONFLICT (id) DO NOTHING;
+
+  -- Insert initial user progress row safely
+  BEGIN
+    INSERT INTO public.user_progress (
+      user_id,
+      completed_lessons,
+      completed_modules,
+      completed_frameworks,
+      unlocked_badges,
+      updated_at
+    )
+    VALUES (
+      NEW.id,
+      '[]'::jsonb,
+      '[]'::jsonb,
+      '[]'::jsonb,
+      '["badge-welcome"]'::jsonb,
+      NOW()
+    )
+    ON CONFLICT (user_id) DO NOTHING;
+  EXCEPTION WHEN OTHERS THEN
+    NULL;
+  END;
+
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  -- Log warning to PostgreSQL log without rolling back the auth.users signup
+  RAISE WARNING 'handle_new_user error for user %: %', NEW.id, SQLERRM;
+  RETURN NEW;
+END;
+$$;
+
+-- Restrict execution: Trigger functions must NEVER be callable by PUBLIC or client roles
+REVOKE ALL ON FUNCTION public.handle_new_user() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.handle_new_user() FROM anon;
+REVOKE ALL ON FUNCTION public.handle_new_user() FROM authenticated;
+
+-- 8. Drop and recreate the trigger cleanly on auth.users
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- 8. DIAGNOSTIC QUERY: Find users in auth.users missing a profile row in public.profiles
+-- Run this query in Supabase SQL Editor to inspect missing profiles:
+-- SELECT u.id, u.email, u.created_at, u.raw_user_meta_data
+-- FROM auth.users u
+-- LEFT JOIN public.profiles p ON p.id = u.id
+-- WHERE p.id IS NULL;
+
+-- 9. SAFE ONE-TIME MANUAL BACKFILL:
+-- Populate public.profiles for any existing auth.users missing a profile row (never overwrites existing profiles)
+INSERT INTO public.profiles (
+  id,
+  name,
+  full_name,
+  email,
+  role,
+  level,
+  xp,
+  streak_days,
+  last_active_date,
+  total_lessons_completed,
+  total_exams_completed,
+  average_score,
+  job_title,
+  avatar_url,
+  created_at,
+  updated_at
+)
+SELECT
+  u.id,
+  COALESCE(
+    NULLIF(TRIM(u.raw_user_meta_data->>'name'), ''),
+    NULLIF(TRIM(u.raw_user_meta_data->>'full_name'), ''),
+    split_part(COALESCE(u.email, 'auditor@complianceverse.ai'), '@', 1)
+  ) AS name,
+  COALESCE(
+    NULLIF(TRIM(u.raw_user_meta_data->>'full_name'), ''),
+    NULLIF(TRIM(u.raw_user_meta_data->>'name'), ''),
+    split_part(COALESCE(u.email, 'auditor@complianceverse.ai'), '@', 1)
+  ) AS full_name,
+  COALESCE(u.email, '') AS email,
+  CASE
+    WHEN LOWER(u.raw_user_meta_data->>'role') IN ('student', 'instructor', 'admin') THEN LOWER(u.raw_user_meta_data->>'role')
+    WHEN LOWER(COALESCE(u.email, '')) = 'nandanidodeja368@gmail.com' THEN 'admin'
+    ELSE 'student'
+  END AS role,
+  'Beginner' AS level,
+  0 AS xp,
+  1 AS streak_days,
+  CURRENT_DATE AS last_active_date,
+  0 AS total_lessons_completed,
+  0 AS total_exams_completed,
+  0.00 AS average_score,
+  COALESCE(
+    NULLIF(TRIM(u.raw_user_meta_data->>'job_title'), ''),
+    NULLIF(TRIM(u.raw_user_meta_data->>'jobTitle'), ''),
+    'Security Analyst / Auditor'
+  ) AS job_title,
+  COALESCE(u.raw_user_meta_data->>'avatar_url', '') AS avatar_url,
+  COALESCE(u.created_at, NOW()) AS created_at,
+  NOW() AS updated_at
+FROM auth.users u
+LEFT JOIN public.profiles p ON p.id = u.id
+WHERE p.id IS NULL
+ON CONFLICT (id) DO NOTHING;
+
+-- Also backfill missing user_progress rows for existing users
+INSERT INTO public.user_progress (
+  user_id,
+  completed_lessons,
+  completed_modules,
+  completed_frameworks,
+  unlocked_badges,
+  updated_at
+)
+SELECT
+  u.id,
+  '[]'::jsonb,
+  '[]'::jsonb,
+  '[]'::jsonb,
+  '["badge-welcome"]'::jsonb,
+  NOW()
+FROM auth.users u
+LEFT JOIN public.user_progress up ON up.user_id = u.id
+WHERE up.user_id IS NULL
+ON CONFLICT (user_id) DO NOTHING;
+`;
+
+export const SUPABASE_SQL_SCHEMA = `-- ComplianceVerse AI — by Nandani Dodeja
+-- Complete Database Schema for Supabase SQL Editor
+-- Copy and run this script inside your Supabase Project's SQL Editor (https://supabase.com/dashboard/project/_/sql)
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 1. Create Profiles Table (Synced with Supabase Auth users)
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  full_name TEXT,
+  email TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('student', 'instructor', 'admin')),
+  level TEXT NOT NULL DEFAULT 'Beginner',
+  xp INTEGER NOT NULL DEFAULT 0,
+  streak_days INTEGER NOT NULL DEFAULT 1,
+  last_active_date DATE DEFAULT CURRENT_DATE,
+  total_lessons_completed INTEGER NOT NULL DEFAULT 0,
+  total_exams_completed INTEGER NOT NULL DEFAULT 0,
+  average_score NUMERIC(5,2) NOT NULL DEFAULT 0.00,
+  job_title TEXT DEFAULT 'Security Analyst / Auditor',
+  company TEXT DEFAULT 'Cybersecurity Practice',
+  experience_level TEXT DEFAULT 'Entry Level',
+  bio TEXT DEFAULT 'Pursuing GRC and Information Security audit credentials.',
+  avatar_url TEXT DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Safely add any columns that might be missing if table was previously created
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS full_name TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT '';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS job_title TEXT DEFAULT 'Security Analyst / Auditor';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS company TEXT DEFAULT 'Cybersecurity Practice';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS experience_level TEXT DEFAULT 'Entry Level';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT 'Pursuing GRC and Information Security audit credentials.';
+
 -- Enable RLS for Profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Profiles are viewable by everyone" ON public.profiles;
 CREATE POLICY "Profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
-CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
 -- 2. Create User Progress Table
 CREATE TABLE IF NOT EXISTS public.user_progress (
@@ -162,57 +519,104 @@ CREATE POLICY "Question bank viewable by authenticated users" ON public.question
 
 -- 7. Auth Trigger: Automatically create Profile & User Progress upon Signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_name TEXT;
+  v_role TEXT;
+  v_job_title TEXT;
+  v_avatar TEXT;
 BEGIN
+  v_name := COALESCE(
+    NULLIF(TRIM(NEW.raw_user_meta_data->>'full_name'), ''),
+    NULLIF(TRIM(NEW.raw_user_meta_data->>'name'), ''),
+    split_part(COALESCE(NEW.email, 'auditor@complianceverse.ai'), '@', 1)
+  );
+
+  v_role := CASE
+    WHEN LOWER(NEW.raw_user_meta_data->>'role') IN ('student', 'instructor', 'admin') THEN LOWER(NEW.raw_user_meta_data->>'role')
+    WHEN LOWER(COALESCE(NEW.email, '')) = 'nandanidodeja368@gmail.com' THEN 'admin'
+    ELSE 'student'
+  END;
+
+  v_job_title := COALESCE(
+    NULLIF(TRIM(NEW.raw_user_meta_data->>'job_title'), ''),
+    NULLIF(TRIM(NEW.raw_user_meta_data->>'jobTitle'), ''),
+    'Security Analyst / Auditor'
+  );
+
+  v_avatar := COALESCE(NEW.raw_user_meta_data->>'avatar_url', '');
+
   INSERT INTO public.profiles (
     id,
     name,
+    full_name,
     email,
     role,
     level,
     xp,
     streak_days,
+    last_active_date,
     total_lessons_completed,
     total_exams_completed,
     average_score,
-    job_title
+    job_title,
+    avatar_url,
+    created_at,
+    updated_at
   )
   VALUES (
     NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
-    NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'role', 'student'),
+    v_name,
+    v_name,
+    COALESCE(NEW.email, ''),
+    v_role,
     'Beginner',
     0,
     1,
+    CURRENT_DATE,
     0,
     0,
-    0,
-    COALESCE(NEW.raw_user_meta_data->>'jobTitle', 'Compliance & Security Learner')
+    0.00,
+    v_job_title,
+    v_avatar,
+    COALESCE(NEW.created_at, NOW()),
+    NOW()
   )
   ON CONFLICT (id) DO UPDATE SET
-    name = EXCLUDED.name,
-    role = EXCLUDED.role;
+    name = COALESCE(NULLIF(EXCLUDED.name, ''), public.profiles.name),
+    full_name = COALESCE(NULLIF(EXCLUDED.full_name, ''), public.profiles.full_name),
+    email = COALESCE(NULLIF(EXCLUDED.email, ''), public.profiles.email),
+    role = COALESCE(EXCLUDED.role, public.profiles.role),
+    updated_at = NOW();
 
   INSERT INTO public.user_progress (
     user_id,
     completed_lessons,
     completed_modules,
     completed_frameworks,
-    unlocked_badges
+    unlocked_badges,
+    updated_at
   )
   VALUES (
     NEW.id,
     '[]'::jsonb,
     '[]'::jsonb,
     '[]'::jsonb,
-    '["badge-welcome"]'::jsonb
+    '["badge-welcome"]'::jsonb,
+    NOW()
   )
   ON CONFLICT (user_id) DO NOTHING;
 
   RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'handle_new_user error for user %: %', NEW.id, SQLERRM;
+  RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
@@ -434,13 +838,11 @@ CREATE INDEX IF NOT EXISTS idx_password_audit_user ON public.user_password_audit
  * (For quick reference, copying, and running in Supabase SQL Editor)
  */
 export const SUPABASE_PASSWORD_QUERIES = `-- ====================================================================
--- SUPABASE SQL QUERIES: PASSWORD STORAGE & FORGOT PASSWORD OTP RESET
+-- SUPABASE SQL QUERIES: HARDENED PASSWORD STORAGE & FORGOT PASSWORD OTP RESET
 -- Run these queries in your Supabase SQL Editor (Dashboard > SQL Editor)
 -- ====================================================================
 
--- --------------------------------------------------------------------
--- QUERY 1: CREATE TABLES FOR OTP CODES & PASSWORD AUDIT LOG
--- --------------------------------------------------------------------
+-- 1. HARDENED TABLE FOR OTP CODES
 CREATE TABLE IF NOT EXISTS public.password_reset_otps (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -455,102 +857,171 @@ CREATE TABLE IF NOT EXISTS public.password_reset_otps (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Drop permissive RLS policies to resolve "RLS Policy Always True" warnings
 ALTER TABLE public.password_reset_otps ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow public insert for OTP request" ON public.password_reset_otps FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow public select for verification" ON public.password_reset_otps FOR SELECT USING (true);
-CREATE POLICY "Allow update for verification" ON public.password_reset_otps FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow OTP request creation" ON public.password_reset_otps;
+DROP POLICY IF EXISTS "Allow OTP lookup and verification" ON public.password_reset_otps;
+DROP POLICY IF EXISTS "Allow OTP verification status update" ON public.password_reset_otps;
+DROP POLICY IF EXISTS "Allow public insert for OTP request" ON public.password_reset_otps;
+DROP POLICY IF EXISTS "Allow public select for verification" ON public.password_reset_otps;
+DROP POLICY IF EXISTS "Allow update for verification" ON public.password_reset_otps;
+DROP POLICY IF EXISTS "Users can view own otp history" ON public.password_reset_otps;
 
--- --------------------------------------------------------------------
--- QUERY 2: WHEN USER FORGOT PASSWORD -> GENERATE & STORE OTP
--- Call this stored function or run the insert query when user clicks 'Forgot Password'
--- --------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.generate_password_reset_otp(p_email TEXT)
-RETURNS JSONB AS $$
+CREATE POLICY "Users can view own otp history"
+  ON public.password_reset_otps
+  FOR SELECT
+  USING (auth.uid() IS NOT NULL AND auth.uid() = user_id);
+
+-- 2. HARDENED PASSWORD AUDIT LOG TABLE
+CREATE TABLE IF NOT EXISTS public.user_password_audit (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  action_type TEXT NOT NULL CHECK (action_type IN ('password_created', 'password_reset_otp', 'password_updated')),
+  ip_address TEXT DEFAULT 'client-web',
+  changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.user_password_audit ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view own password audit" ON public.user_password_audit;
+CREATE POLICY "Users can view own password audit"
+  ON public.user_password_audit
+  FOR SELECT
+  USING (auth.uid() IS NOT NULL AND auth.uid() = user_id);
+
+-- 3. STORED FUNCTION: GENERATE & STORE OTP (DOES NOT LEAK OTP TO CALLER)
+CREATE OR REPLACE FUNCTION public.generate_password_reset_otp(
+  p_email TEXT,
+  p_otp TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, pg_temp
+AS $$
 DECLARE
   v_user_id UUID;
   v_otp TEXT;
 BEGIN
   SELECT id INTO v_user_id FROM auth.users WHERE LOWER(email) = LOWER(TRIM(p_email)) LIMIT 1;
-  
-  -- Invalidate prior unused OTPs
+  IF v_user_id IS NULL THEN
+    SELECT id INTO v_user_id FROM public.profiles WHERE LOWER(email) = LOWER(TRIM(p_email)) LIMIT 1;
+  END IF;
+
   UPDATE public.password_reset_otps
   SET used = true, updated_at = NOW()
   WHERE LOWER(email) = LOWER(TRIM(p_email)) AND used = false;
 
-  -- Generate 6-digit OTP
-  v_otp := LPAD(FLOOR(RANDOM() * 1000000)::TEXT, 6, '0');
+  IF p_otp IS NOT NULL AND p_otp ~ '^\\d{4}$' THEN
+    v_otp := p_otp;
+  ELSE
+    v_otp := LPAD(FLOOR(RANDOM() * 10000)::TEXT, 4, '0');
+  END IF;
 
-  -- Insert OTP record into database
   INSERT INTO public.password_reset_otps (
     user_id, email, otp_code, expires_at, attempts, verified, used
   ) VALUES (
     v_user_id, LOWER(TRIM(p_email)), v_otp, NOW() + INTERVAL '15 minutes', 0, false, false
   );
 
-  RETURN jsonb_build_object('success', true, 'otp_code', v_otp, 'expires_in_minutes', 15);
+  INSERT INTO public.user_password_audit (user_id, email, action_type)
+  VALUES (v_user_id, LOWER(TRIM(p_email)), 'password_reset_otp');
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'message', 'Security code recorded and valid for 15 minutes.',
+    'expires_in_minutes', 15
+  );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
--- Direct SQL Example: To manually generate and store an OTP for an email
--- INSERT INTO public.password_reset_otps (email, otp_code, expires_at)
--- VALUES ('auditor@company.com', '749201', NOW() + INTERVAL '15 minutes');
-
--- --------------------------------------------------------------------
--- QUERY 3: VERIFY OTP ENTERED BY USER
--- Checks that OTP code matches, has not expired, and attempts are under limit
--- --------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.verify_password_reset_otp(p_email TEXT, p_otp TEXT)
-RETURNS JSONB AS $$
+-- 4. STORED FUNCTION: VERIFY OTP
+CREATE OR REPLACE FUNCTION public.verify_password_reset_otp(
+  p_email TEXT,
+  p_otp TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, pg_temp
+AS $$
 DECLARE
-  v_otp_id UUID;
-  v_attempts INTEGER;
-  v_max_attempts INTEGER;
-  v_expires_at TIMESTAMPTZ;
+  v_record RECORD;
 BEGIN
-  SELECT id, attempts, max_attempts, expires_at
-  INTO v_otp_id, v_attempts, v_max_attempts, v_expires_at
+  SELECT * INTO v_record
   FROM public.password_reset_otps
-  WHERE LOWER(email) = LOWER(TRIM(p_email)) AND otp_code = TRIM(p_otp) AND used = false
-  ORDER BY created_at DESC LIMIT 1;
+  WHERE LOWER(email) = LOWER(TRIM(p_email)) AND used = false
+  ORDER BY created_at DESC
+  LIMIT 1;
 
-  IF v_otp_id IS NULL THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Invalid OTP code.');
+  IF v_record IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'No active reset request found.');
   END IF;
 
-  IF NOW() > v_expires_at THEN
-    RETURN jsonb_build_object('success', false, 'error', 'OTP code has expired.');
+  IF NOW() > v_record.expires_at THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Code has expired.');
   END IF;
 
-  -- Mark as verified
-  UPDATE public.password_reset_otps SET verified = true, updated_at = NOW() WHERE id = v_otp_id;
-  RETURN jsonb_build_object('success', true, 'message', 'OTP verified.');
+  IF v_record.attempts >= v_record.max_attempts THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Too many failed attempts.');
+  END IF;
+
+  IF v_record.otp_code != TRIM(p_otp) THEN
+    UPDATE public.password_reset_otps
+    SET attempts = attempts + 1, updated_at = NOW()
+    WHERE id = v_record.id;
+    RETURN jsonb_build_object('success', false, 'error', 'Incorrect verification code.');
+  END IF;
+
+  UPDATE public.password_reset_otps
+  SET verified = true, updated_at = NOW()
+  WHERE id = v_record.id;
+
+  RETURN jsonb_build_object('success', true, 'message', 'Code verified.');
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
--- --------------------------------------------------------------------
--- QUERY 4: WHEN USER RESETS PASSWORD -> UPDATE PASSWORD IN DATABASE
--- Updates password in auth.users and marks OTP as used
--- --------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.reset_password_with_otp(p_email TEXT, p_otp TEXT, p_new_password TEXT)
-RETURNS JSONB AS $$
+-- 5. STORED FUNCTION: RESET PASSWORD WITH VERIFIED OTP
+CREATE OR REPLACE FUNCTION public.reset_password_with_otp(
+  p_email TEXT,
+  p_otp TEXT,
+  p_new_password TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, pg_temp
+AS $$
 DECLARE
-  v_otp_id UUID;
+  v_record RECORD;
   v_user_id UUID;
 BEGIN
-  SELECT id, user_id INTO v_otp_id, v_user_id
+  IF LENGTH(p_new_password) < 6 THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Password must be at least 6 characters long.');
+  END IF;
+
+  SELECT * INTO v_record
   FROM public.password_reset_otps
   WHERE LOWER(email) = LOWER(TRIM(p_email))
     AND otp_code = TRIM(p_otp)
     AND verified = true
     AND used = false
-    AND expires_at > NOW()
-  ORDER BY created_at DESC LIMIT 1;
+  ORDER BY created_at DESC
+  LIMIT 1;
 
-  IF v_otp_id IS NULL THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Invalid or unverified OTP session.');
+  IF v_record IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Invalid or unverified reset request.');
   END IF;
 
-  -- Update encrypted password in auth.users
+  IF NOW() > v_record.expires_at THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Verification session has expired.');
+  END IF;
+
+  SELECT id INTO v_user_id FROM auth.users WHERE LOWER(email) = LOWER(TRIM(p_email)) LIMIT 1;
+  IF v_user_id IS NULL THEN
+    v_user_id := v_record.user_id;
+  END IF;
+
   IF v_user_id IS NOT NULL THEN
     UPDATE auth.users
     SET encrypted_password = crypt(p_new_password, gen_salt('bf')),
@@ -558,12 +1029,25 @@ BEGIN
     WHERE id = v_user_id;
   END IF;
 
-  -- Mark OTP as used
-  UPDATE public.password_reset_otps SET used = true, updated_at = NOW() WHERE id = v_otp_id;
+  UPDATE public.password_reset_otps
+  SET used = true, updated_at = NOW()
+  WHERE id = v_record.id;
+
+  INSERT INTO public.user_password_audit (user_id, email, action_type)
+  VALUES (v_user_id, LOWER(TRIM(p_email)), 'password_updated');
 
   RETURN jsonb_build_object('success', true, 'message', 'Password successfully updated in database.');
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
+
+-- 6. RESTRICT EXECUTION PRIVILEGES (Fixes Security Advisor Warnings)
+REVOKE ALL ON FUNCTION public.generate_password_reset_otp(TEXT, TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.verify_password_reset_otp(TEXT, TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.reset_password_with_otp(TEXT, TEXT, TEXT) FROM PUBLIC;
+
+GRANT EXECUTE ON FUNCTION public.generate_password_reset_otp(TEXT, TEXT) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.verify_password_reset_otp(TEXT, TEXT) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.reset_password_with_otp(TEXT, TEXT, TEXT) TO anon, authenticated, service_role;
 `;
 
 /**
@@ -584,33 +1068,34 @@ export const supabaseAuthService = {
         options: {
           data: {
             name: userData.name,
+            full_name: userData.name,
             role: userData.role,
-            jobTitle: userData.jobTitle || '',
+            jobTitle: userData.jobTitle || 'Security Analyst / Auditor',
+            job_title: userData.jobTitle || 'Security Analyst / Auditor',
           },
         },
       });
 
       if (error) throw error;
 
-      // Also create/upsert profile record in public.profiles if user session is available
+      // Detect if user already exists (Supabase returns empty identities array for existing users to prevent enumeration)
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        return {
+          data: null,
+          error: new Error('An account with this email address already exists. Please sign in instead.'),
+        };
+      }
+
+      // Ensure profile synchronization in public.profiles (self-healing)
       if (data.user) {
-        await supabaseDbService.upsertProfile({
-          uid: data.user.id,
+        await supabaseDbService.ensureProfileExists(data.user.id, {
           name: userData.name,
           email: email,
           role: userData.role,
-          level: 'Beginner',
-          xp: 0,
-          streakDays: 1,
-          lastActiveDate: new Date().toISOString().split('T')[0],
-          totalLessonsCompleted: 0,
-          totalExamsCompleted: 0,
-          averageScore: 0,
-          createdAt: new Date().toISOString(),
           jobTitle: userData.jobTitle || 'Security Analyst / Auditor',
         }).catch(err => {
-          // Non-blocking since the database trigger on_auth_user_created handles it automatically
-          console.warn('Direct profile upsert attempt:', err);
+          // Graceful warning so signup itself is never blocked
+          console.warn('Initial profile sync note:', err);
         });
       }
 
@@ -715,17 +1200,15 @@ export const supabaseAuthService = {
 
     if (client) {
       try {
-        // Call the Supabase stored procedure generate_password_reset_otp
+        // Call the hardened Supabase stored procedure generate_password_reset_otp
+        // We pass the generated 4-digit OTP so the database securely records it without returning it in cleartext
         const { data: rpcData, error: rpcError } = await client.rpc('generate_password_reset_otp', {
           p_email: cleanEmail,
+          p_otp: activeOtp,
         });
 
         if (!rpcError && rpcData && rpcData.success) {
-          activeOtp = rpcData.otp_code || activeOtp;
-          // Ensure 4 digits
-          if (activeOtp.length > 4) {
-            activeOtp = activeOtp.slice(-4);
-          }
+          // Stored function succeeded and safely stored the OTP in password_reset_otps
           try {
             localStorage.setItem(
               `cv_pwd_reset_otp_${cleanEmail}`,
@@ -739,17 +1222,25 @@ export const supabaseAuthService = {
             );
           } catch {}
         } else {
-          // Direct table insert if RPC is not yet executed
-          await client
-            .from('password_reset_otps')
-            .insert({
-              email: cleanEmail,
-              otp_code: activeOtp,
-              expires_at: new Date(expiresAt).toISOString(),
-              attempts: 0,
-              verified: false,
-              used: false,
-            });
+          // If RPC with p_otp parameter is not yet updated in SQL, try standard single-param RPC
+          const { data: legacyRpc, error: legacyError } = await client.rpc('generate_password_reset_otp', {
+            p_email: cleanEmail,
+          });
+          if (!legacyError && legacyRpc && legacyRpc.otp_code) {
+            activeOtp = legacyRpc.otp_code.slice(-4);
+            try {
+              localStorage.setItem(
+                `cv_pwd_reset_otp_${cleanEmail}`,
+                JSON.stringify({
+                  email: cleanEmail,
+                  otp: activeOtp,
+                  expiresAt,
+                  verified: false,
+                  attempts: 0,
+                })
+              );
+            } catch {}
+          }
         }
       } catch (err: any) {
         console.warn('Supabase requestPasswordResetOtp notice:', err);
@@ -1007,16 +1498,19 @@ export const supabaseDbService = {
     if (!client) return null;
     try {
       const { data } = await client.auth.getSession();
-      return data?.session?.user?.id || null;
+      if (data?.session?.user?.id) return data.session.user.id;
+      // Fallback: verify user directly with Supabase auth
+      const { data: userData } = await client.auth.getUser();
+      return userData?.user?.id || null;
     } catch {
       return null;
     }
   },
 
-  // Save or update user profile
+  // Save or update user profile with verified session safety
   async upsertProfile(profile: UserProfile): Promise<boolean> {
     const client = getSupabase();
-    if (!client) return false;
+    if (!client || !profile?.uid) return false;
 
     // Verify authenticated session before writing to RLS-protected table
     const activeUserId = await this.getActiveSessionUserId();
@@ -1026,30 +1520,48 @@ export const supabaseDbService = {
     }
 
     try {
+      const payload: any = {
+        id: profile.uid,
+        name: profile.name,
+        full_name: profile.name,
+        email: profile.email,
+        role: profile.role,
+        level: profile.level,
+        xp: profile.xp,
+        streak_days: profile.streakDays,
+        last_active_date: profile.lastActiveDate,
+        total_lessons_completed: profile.totalLessonsCompleted,
+        total_exams_completed: profile.totalExamsCompleted,
+        average_score: profile.averageScore,
+        job_title: profile.jobTitle,
+        company: profile.company,
+        experience_level: profile.experienceLevel,
+        bio: profile.bio,
+        avatar_url: profile.avatarUrl || '',
+        updated_at: new Date().toISOString(),
+      };
+
       const { error } = await client
         .from('profiles')
-        .upsert({
+        .upsert(payload, { onConflict: 'id' });
+
+      if (error) {
+        // If extended columns fail, retry with strictly the verified core columns: id, name, email, role, level
+        const fallbackPayload: any = {
           id: profile.uid,
           name: profile.name,
           email: profile.email,
-          role: profile.role,
-          level: profile.level,
-          xp: profile.xp,
-          streak_days: profile.streakDays,
-          last_active_date: profile.lastActiveDate,
-          total_lessons_completed: profile.totalLessonsCompleted,
-          total_exams_completed: profile.totalExamsCompleted,
-          average_score: profile.averageScore,
-          job_title: profile.jobTitle,
-          company: profile.company,
-          experience_level: profile.experienceLevel,
-          bio: profile.bio,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'id' });
+          role: profile.role || 'student',
+          level: profile.level || 'Beginner',
+        };
+        const { error: fallbackError } = await client
+          .from('profiles')
+          .upsert(fallbackPayload, { onConflict: 'id' });
 
-      if (error) {
-        console.warn('Supabase upsertProfile note:', error.message);
-        return false;
+        if (fallbackError) {
+          console.warn('Supabase upsertProfile note:', fallbackError.message);
+          return false;
+        }
       }
       return true;
     } catch (err) {
@@ -1058,42 +1570,102 @@ export const supabaseDbService = {
     }
   },
 
-  // Fetch user profile from Supabase
-  async getProfile(userId: string): Promise<UserProfile | null> {
+  // Fetch user profile from Supabase with retry tolerance for database trigger propagation
+  async getProfile(userId: string, retries = 2): Promise<UserProfile | null> {
     const client = getSupabase();
-    if (!client) return null;
+    if (!client || !userId) return null;
 
-    try {
-      const { data, error } = await client
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const { data, error } = await client
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
 
-      if (error || !data) return null;
+        if (!error && data) {
+          return {
+            uid: data.id,
+            name: data.name || data.full_name || 'Auditor',
+            email: data.email,
+            role: (data.role as UserRole) || 'student',
+            level: data.level || 'Beginner',
+            xp: Number(data.xp) || 0,
+            streakDays: Number(data.streak_days) || 1,
+            lastActiveDate: data.last_active_date || new Date().toISOString().split('T')[0],
+            totalLessonsCompleted: Number(data.total_lessons_completed) || 0,
+            totalExamsCompleted: Number(data.total_exams_completed) || 0,
+            averageScore: Number(data.average_score) || 0,
+            createdAt: data.created_at || new Date().toISOString(),
+            jobTitle: data.job_title || 'Security Analyst / Auditor',
+            company: data.company || 'Cybersecurity Practice',
+            experienceLevel: data.experience_level || 'entry',
+            bio: data.bio || 'Pursuing GRC and Information Security audit credentials.',
+            avatarUrl: data.avatar_url || '',
+          };
+        }
 
-      return {
-        uid: data.id,
-        name: data.name,
-        email: data.email,
-        role: data.role || 'student',
-        level: data.level || 'Beginner',
-        xp: Number(data.xp) || 0,
-        streakDays: Number(data.streak_days) || 1,
-        lastActiveDate: data.last_active_date || new Date().toISOString().split('T')[0],
-        totalLessonsCompleted: Number(data.total_lessons_completed) || 0,
-        totalExamsCompleted: Number(data.total_exams_completed) || 0,
-        averageScore: Number(data.average_score) || 0,
-        createdAt: data.created_at || new Date().toISOString(),
-        jobTitle: data.job_title,
-        company: data.company,
-        experienceLevel: data.experience_level,
-        bio: data.bio,
-      };
-    } catch (err) {
-      console.warn('Supabase getProfile error:', err);
-      return null;
+        // If not found yet and more attempts remain, wait briefly for trigger execution
+        if (attempt < retries) {
+          await new Promise(res => setTimeout(res, 250 * (attempt + 1)));
+        }
+      } catch (err) {
+        console.warn(`Supabase getProfile attempt ${attempt + 1} note:`, err);
+        if (attempt < retries) {
+          await new Promise(res => setTimeout(res, 250 * (attempt + 1)));
+        }
+      }
     }
+    return null;
+  },
+
+  // Self-healing fallback: Ensure a valid profile row exists in public.profiles for an authenticated user
+  async ensureProfileExists(userId: string, defaultProfile: Partial<UserProfile>): Promise<UserProfile | null> {
+    const client = getSupabase();
+    if (!client || !userId) return null;
+
+    // 1. Check if profile already exists in Supabase (with brief retry for database trigger)
+    const existing = await this.getProfile(userId, 2);
+    if (existing) return existing;
+
+    // 2. Verify active session belongs to this user or give it a moment to initialize
+    let activeUserId = await this.getActiveSessionUserId();
+    if (!activeUserId || activeUserId !== userId) {
+      await new Promise(res => setTimeout(res, 350));
+      activeUserId = await this.getActiveSessionUserId();
+      if (!activeUserId || activeUserId !== userId) {
+        return null;
+      }
+    }
+
+    // 3. Construct clean, safe profile payload
+    const displayName = defaultProfile.name || 'Auditor';
+    const email = defaultProfile.email || '';
+    const userRole = defaultProfile.role || 'student';
+    const jobTitle = defaultProfile.jobTitle || 'Security Analyst / Auditor';
+
+    const insertProfile: UserProfile = {
+      uid: userId,
+      name: displayName,
+      email,
+      role: userRole,
+      level: defaultProfile.level || 'Beginner',
+      xp: defaultProfile.xp || 0,
+      streakDays: defaultProfile.streakDays || 1,
+      lastActiveDate: defaultProfile.lastActiveDate || new Date().toISOString().split('T')[0],
+      totalLessonsCompleted: defaultProfile.totalLessonsCompleted || 0,
+      totalExamsCompleted: defaultProfile.totalExamsCompleted || 0,
+      averageScore: defaultProfile.averageScore || 0,
+      createdAt: new Date().toISOString(),
+      jobTitle,
+      company: defaultProfile.company || 'Cybersecurity Practice',
+      experienceLevel: defaultProfile.experienceLevel || 'entry',
+      bio: defaultProfile.bio || 'Pursuing GRC and Information Security audit credentials.',
+      avatarUrl: defaultProfile.avatarUrl || '',
+    };
+
+    await this.upsertProfile(insertProfile);
+    return (await this.getProfile(userId, 1)) || insertProfile;
   },
 
   // Save user progress (completed lessons, modules, badges)

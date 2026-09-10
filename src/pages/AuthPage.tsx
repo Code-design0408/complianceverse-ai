@@ -340,10 +340,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           </div>
 
           <h1 className="font-heading text-2xl sm:text-3xl font-extrabold text-text-primary tracking-tight">
-            C.<span className="text-primary-light">V</span>
+            ComplianceVerse <span className="text-primary-light">AI</span>
           </h1>
           <p className="text-xs text-text-secondary max-w-xs mx-auto">
-            Cybersecurity & GRC Compliance Platform
+            AI-powered cybersecurity and compliance learning • Created by Nandani Dodeja
           </p>
 
           {/* Supabase Status Pill */}
@@ -1174,9 +1174,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         )}
 
         {/* Security & Compliance Attestation Footer */}
-        <div className="text-center text-[11px] text-text-muted flex items-center justify-center gap-2">
-          <ShieldCheck className="h-3.5 w-3.5 text-primary-light" />
-          <span>Protected by SOC 2 Type II & ISO/IEC 27001 Compliance Standards Simulation</span>
+        <div className="text-center space-y-1">
+          <div className="text-[11px] text-text-muted flex items-center justify-center gap-2">
+            <ShieldCheck className="h-3.5 w-3.5 text-primary-light" />
+            <span>Protected by SOC 2 Type II & ISO/IEC 27001 Compliance Standards Simulation</span>
+          </div>
+          <p className="text-[10px] text-text-muted">
+            &copy; 2026 ComplianceVerse AI. Created by Nandani Dodeja.
+          </p>
         </div>
 
       </div>
