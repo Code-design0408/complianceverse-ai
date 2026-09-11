@@ -112,10 +112,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }`}
             aria-label="Go to ComplianceVerse AI Dashboard"
           >
-            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-primary-dark to-black p-0.5 shadow-lg shadow-primary/25 ring-1 ring-white/15 group-hover:ring-primary-light transition-all">
-              <div className="flex h-full w-full items-center justify-center rounded-[14px] bg-[#0c0c12]/90 backdrop-blur-md">
-                <ShieldCheck className="h-5 w-5 text-primary-light group-hover:scale-110 transition-transform" />
-              </div>
+            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-primary-dark to-black p-0.5 shadow-lg shadow-primary/25 ring-1 ring-white/15 group-hover:ring-primary-light transition-all overflow-hidden">
+              <img
+                src="/favicon.png"
+                alt="ComplianceVerse AI Logo"
+                className="h-full w-full object-cover rounded-[14px]"
+                referrerPolicy="no-referrer"
+              />
             </div>
 
             {!isCollapsed && (

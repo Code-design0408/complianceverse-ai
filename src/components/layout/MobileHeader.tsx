@@ -46,8 +46,13 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
         </button>
 
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-primary/20 border border-primary/30 text-primary-light">
-            <ShieldCheck className="h-4 w-4" />
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-primary/20 border border-primary/30 overflow-hidden">
+            <img
+              src="/favicon.png"
+              alt="ComplianceVerse AI Logo"
+              className="h-full w-full object-cover rounded-lg"
+              referrerPolicy="no-referrer"
+            />
           </div>
           <div className="flex flex-col">
             <span className="font-heading text-xs font-bold text-text-primary leading-tight">

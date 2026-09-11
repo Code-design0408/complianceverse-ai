@@ -73,10 +73,13 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
             onClick={() => setCurrentTab('dashboard')}
             className="flex items-center gap-2.5 text-left group focus:outline-none"
           >
-            <div className="relative flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-primary-dark to-black p-0.5 shadow-lg shadow-primary/25 ring-1 ring-white/15 group-hover:ring-primary-light transition-all">
-              <div className="flex h-full w-full items-center justify-center rounded-[14px] bg-background-elevated/90 backdrop-blur-md">
-                <ShieldCheck className="h-5 w-5 text-primary-light group-hover:scale-110 transition-transform" />
-              </div>
+            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-primary-dark to-black p-0.5 shadow-lg shadow-primary/25 ring-1 ring-white/15 group-hover:ring-primary-light transition-all overflow-hidden">
+              <img
+                src="/favicon.png"
+                alt="ComplianceVerse AI Logo"
+                className="h-full w-full object-cover rounded-[14px]"
+                referrerPolicy="no-referrer"
+              />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
