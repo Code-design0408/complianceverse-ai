@@ -228,7 +228,7 @@ CREATE OR REPLACE FUNCTION public.enforce_profile_role_protection()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = pg_catalog, public, pg_temp
 AS $$
 BEGIN
   IF NEW.role IS DISTINCT FROM OLD.role THEN
@@ -262,7 +262,7 @@ CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = pg_catalog, public, pg_temp
 AS $$
 DECLARE
   v_name TEXT;
@@ -387,7 +387,7 @@ CREATE OR REPLACE FUNCTION public.generate_password_reset_otp(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, auth, pg_temp
+SET search_path = pg_catalog, public, auth, pg_temp
 AS $$
 DECLARE
   v_user_id UUID;
@@ -451,7 +451,7 @@ CREATE OR REPLACE FUNCTION public.verify_password_reset_otp(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, auth, pg_temp
+SET search_path = pg_catalog, public, auth, pg_temp
 AS $$
 DECLARE
   v_record RECORD;
@@ -498,7 +498,7 @@ CREATE OR REPLACE FUNCTION public.reset_password_with_otp(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, auth, pg_temp
+SET search_path = pg_catalog, public, auth, pg_temp
 AS $$
 DECLARE
   v_record RECORD;
@@ -561,6 +561,16 @@ REVOKE ALL ON FUNCTION public.reset_password_with_otp(TEXT, TEXT, TEXT) FROM PUB
 GRANT EXECUTE ON FUNCTION public.generate_password_reset_otp(TEXT, TEXT) TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.verify_password_reset_otp(TEXT, TEXT) TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.reset_password_with_otp(TEXT, TEXT, TEXT) TO anon, authenticated, service_role;
+
+-- Backward compatibility: If legacy single-parameter generate_password_reset_otp(TEXT) exists in database, secure it as well
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'generate_password_reset_otp' AND pronargs = 1) THEN
+    EXECUTE 'REVOKE ALL ON FUNCTION public.generate_password_reset_otp(TEXT) FROM PUBLIC;';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.generate_password_reset_otp(TEXT) TO anon, authenticated, service_role;';
+    EXECUTE 'ALTER FUNCTION public.generate_password_reset_otp(TEXT) SET search_path = pg_catalog, public, auth, pg_temp;';
+  END IF;
+END $$;
 
 -- --------------------------------------------------------------------
 -- 12. PERFORMANCE INDEXES

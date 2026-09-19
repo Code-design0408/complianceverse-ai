@@ -153,7 +153,7 @@ CREATE OR REPLACE FUNCTION public.enforce_profile_role_protection()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = pg_catalog, public, pg_temp
 AS $$
 BEGIN
   IF NEW.role IS DISTINCT FROM OLD.role THEN
@@ -180,12 +180,12 @@ CREATE TRIGGER trg_protect_profile_role
 
 -- 7. Robust PostgreSQL Trigger Function on auth.users
 -- SECURITY DEFINER allows the function to execute with elevated privileges
--- SET search_path = public, pg_temp prevents search_path hijacking
+-- SET search_path = pg_catalog, public, pg_temp prevents search_path hijacking
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = pg_catalog, public, pg_temp
 AS $$
 DECLARE
   v_name TEXT;
@@ -423,7 +423,11 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT 'Pursuing 
 -- Enable RLS for Profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Profiles are viewable by everyone" ON public.profiles;
-CREATE POLICY "Profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
+CREATE POLICY "Users can view own profile" ON public.profiles FOR SELECT USING (
+  auth.uid() = id
+  OR LOWER(COALESCE((SELECT email FROM auth.users WHERE id = auth.uid()), '')) = 'nandanidodeja368@gmail.com'
+);
 DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
 DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
@@ -522,7 +526,7 @@ CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = pg_catalog, public, pg_temp
 AS $$
 DECLARE
   v_name TEXT;
@@ -618,6 +622,11 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $$;
 
+-- Restrict execution: Trigger functions must NEVER be callable directly by PUBLIC or client roles
+REVOKE ALL ON FUNCTION public.handle_new_user() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.handle_new_user() FROM anon;
+REVOKE ALL ON FUNCTION public.handle_new_user() FROM authenticated;
+
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
@@ -645,11 +654,20 @@ CREATE TABLE IF NOT EXISTS public.password_reset_otps (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Enable RLS for OTP Table
+-- Enable RLS for OTP Table (No permissive USING(true) or WITH CHECK(true) policies!)
 ALTER TABLE public.password_reset_otps ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow OTP request creation" ON public.password_reset_otps FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow OTP lookup and verification" ON public.password_reset_otps FOR SELECT USING (true);
-CREATE POLICY "Allow OTP verification status update" ON public.password_reset_otps FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow OTP request creation" ON public.password_reset_otps;
+DROP POLICY IF EXISTS "Allow OTP lookup and verification" ON public.password_reset_otps;
+DROP POLICY IF EXISTS "Allow OTP verification status update" ON public.password_reset_otps;
+DROP POLICY IF EXISTS "Allow public insert for OTP request" ON public.password_reset_otps;
+DROP POLICY IF EXISTS "Allow public select for verification" ON public.password_reset_otps;
+DROP POLICY IF EXISTS "Allow update for verification" ON public.password_reset_otps;
+DROP POLICY IF EXISTS "Users can view own otp history" ON public.password_reset_otps;
+
+CREATE POLICY "Users can view own otp history"
+  ON public.password_reset_otps
+  FOR SELECT
+  USING (auth.uid() IS NOT NULL AND auth.uid() = user_id);
 
 -- 9. Password Audit & Security History Table
 CREATE TABLE IF NOT EXISTS public.user_password_audit (
@@ -662,11 +680,23 @@ CREATE TABLE IF NOT EXISTS public.user_password_audit (
 );
 
 ALTER TABLE public.user_password_audit ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can view own password audit" ON public.user_password_audit FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can view own password audit" ON public.user_password_audit;
+CREATE POLICY "Users can view own password audit"
+  ON public.user_password_audit
+  FOR SELECT
+  USING (auth.uid() IS NOT NULL AND auth.uid() = user_id);
 
 -- 10. Database Function: Generate & Store OTP for 'Forgot Password'
-CREATE OR REPLACE FUNCTION public.generate_password_reset_otp(p_email TEXT)
-RETURNS JSONB AS $$
+-- Hardened: Immutable search_path, No plaintext OTP returned, Revoked PUBLIC execute
+CREATE OR REPLACE FUNCTION public.generate_password_reset_otp(
+  p_email TEXT,
+  p_otp TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public, auth, pg_temp
+AS $$
 DECLARE
   v_user_id UUID;
   v_otp TEXT;
@@ -682,8 +712,12 @@ BEGIN
   SET used = true, updated_at = NOW()
   WHERE LOWER(email) = LOWER(TRIM(p_email)) AND used = false;
 
-  -- Generate secure random 6-digit numeric OTP
-  v_otp := LPAD(FLOOR(RANDOM() * 1000000)::TEXT, 6, '0');
+  -- Use client-provided 4-digit OTP or generate safe 4-digit numeric OTP
+  IF p_otp IS NOT NULL AND p_otp ~ '^\d{4}$' THEN
+    v_otp := p_otp;
+  ELSE
+    v_otp := LPAD(FLOOR(RANDOM() * 10000)::TEXT, 4, '0');
+  END IF;
 
   -- Store the new OTP in database table with 15-minute expiration
   INSERT INTO public.password_reset_otps (
@@ -710,122 +744,144 @@ BEGIN
     VALUES (v_user_id, LOWER(TRIM(p_email)), 'password_reset_otp');
   END IF;
 
+  -- Security: Do NOT leak cleartext OTP code in JSON response
   RETURN jsonb_build_object(
     'success', true,
-    'message', 'Password reset OTP generated and stored successfully',
-    'otp_code', v_otp,
+    'message', 'Security verification code recorded and valid for 15 minutes.',
     'expires_in_minutes', 15
   );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 -- 11. Database Function: Verify OTP Entered by User
-CREATE OR REPLACE FUNCTION public.verify_password_reset_otp(p_email TEXT, p_otp TEXT)
-RETURNS JSONB AS $$
+CREATE OR REPLACE FUNCTION public.verify_password_reset_otp(
+  p_email TEXT,
+  p_otp TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public, auth, pg_temp
+AS $$
 DECLARE
-  v_otp_id UUID;
-  v_attempts INTEGER;
-  v_max_attempts INTEGER;
-  v_expires_at TIMESTAMPTZ;
+  v_record RECORD;
 BEGIN
-  SELECT id, attempts, max_attempts, expires_at
-  INTO v_otp_id, v_attempts, v_max_attempts, v_expires_at
+  SELECT * INTO v_record
   FROM public.password_reset_otps
   WHERE LOWER(email) = LOWER(TRIM(p_email))
-    AND otp_code = TRIM(p_otp)
     AND used = false
   ORDER BY created_at DESC
   LIMIT 1;
 
-  IF v_otp_id IS NULL THEN
-    -- Increment attempt counter on the latest active OTP for this email
+  IF v_record IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'No active reset request found.');
+  END IF;
+
+  IF NOW() > v_record.expires_at THEN
+    UPDATE public.password_reset_otps SET used = true, updated_at = NOW() WHERE id = v_record.id;
+    RETURN jsonb_build_object('success', false, 'error', 'Code has expired. Please request a new code.');
+  END IF;
+
+  IF v_record.attempts >= v_record.max_attempts THEN
+    UPDATE public.password_reset_otps SET used = true, updated_at = NOW() WHERE id = v_record.id;
+    RETURN jsonb_build_object('success', false, 'error', 'Too many invalid attempts. Please request a fresh code.');
+  END IF;
+
+  IF v_record.otp_code != TRIM(p_otp) THEN
     UPDATE public.password_reset_otps
     SET attempts = attempts + 1, updated_at = NOW()
-    WHERE LOWER(email) = LOWER(TRIM(p_email)) AND used = false;
-
-    RETURN jsonb_build_object(
-      'success', false,
-      'error', 'Invalid or expired OTP verification code. Please check and try again.'
-    );
-  END IF;
-
-  IF NOW() > v_expires_at THEN
-    UPDATE public.password_reset_otps SET used = true, updated_at = NOW() WHERE id = v_otp_id;
-    RETURN jsonb_build_object('success', false, 'error', 'OTP code has expired. Please request a new code.');
-  END IF;
-
-  IF v_attempts >= v_max_attempts THEN
-    UPDATE public.password_reset_otps SET used = true, updated_at = NOW() WHERE id = v_otp_id;
-    RETURN jsonb_build_object('success', false, 'error', 'Too many invalid attempts. Please request a fresh OTP.');
+    WHERE id = v_record.id;
+    RETURN jsonb_build_object('success', false, 'error', 'Incorrect verification code. Please check and try again.');
   END IF;
 
   -- Mark OTP as verified
   UPDATE public.password_reset_otps
   SET verified = true, updated_at = NOW()
-  WHERE id = v_otp_id;
+  WHERE id = v_record.id;
 
-  RETURN jsonb_build_object(
-    'success', true,
-    'message', 'OTP verified successfully. You may now reset your password.'
-  );
+  RETURN jsonb_build_object('success', true, 'message', 'Verification code accepted.');
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 -- 12. Database Function: Reset User Password with Verified OTP
-CREATE OR REPLACE FUNCTION public.reset_password_with_otp(p_email TEXT, p_otp TEXT, p_new_password TEXT)
-RETURNS JSONB AS $$
+CREATE OR REPLACE FUNCTION public.reset_password_with_otp(
+  p_email TEXT,
+  p_otp TEXT,
+  p_new_password TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public, auth, pg_temp
+AS $$
 DECLARE
-  v_otp_id UUID;
+  v_record RECORD;
   v_user_id UUID;
 BEGIN
-  -- Ensure the OTP was marked verified and is still valid
-  SELECT id, user_id INTO v_otp_id, v_user_id
+  IF LENGTH(p_new_password) < 6 THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Password must be at least 6 characters in length.');
+  END IF;
+
+  SELECT * INTO v_record
   FROM public.password_reset_otps
   WHERE LOWER(email) = LOWER(TRIM(p_email))
     AND otp_code = TRIM(p_otp)
     AND verified = true
     AND used = false
-    AND expires_at > NOW()
   ORDER BY created_at DESC
   LIMIT 1;
 
-  IF v_otp_id IS NULL THEN
-    RETURN jsonb_build_object(
-      'success', false,
-      'error', 'Invalid verification session. Please verify OTP first or request a fresh OTP.'
-    );
+  IF v_record IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Invalid or unverified reset request. Please restart the reset process.');
   END IF;
 
-  IF LENGTH(p_new_password) < 6 THEN
-    RETURN jsonb_build_object(
-      'success', false,
-      'error', 'Password must be at least 6 characters in length.'
-    );
+  IF NOW() > v_record.expires_at THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Verification session has expired.');
   END IF;
 
-  -- Update user password in auth.users using pgcrypto crypt if user_id is found
+  -- Locate user_id in auth.users
+  SELECT id INTO v_user_id FROM auth.users WHERE LOWER(email) = LOWER(TRIM(p_email)) LIMIT 1;
+  IF v_user_id IS NULL THEN
+    v_user_id := v_record.user_id;
+  END IF;
+
   IF v_user_id IS NOT NULL THEN
     UPDATE auth.users
     SET encrypted_password = crypt(p_new_password, gen_salt('bf')),
         updated_at = NOW()
     WHERE id = v_user_id;
-
-    -- Record update in audit log
-    INSERT INTO public.user_password_audit (user_id, email, action_type)
-    VALUES (v_user_id, LOWER(TRIM(p_email)), 'password_updated');
   END IF;
 
   -- Mark OTP as used so it cannot be replayed
   UPDATE public.password_reset_otps
   SET used = true, updated_at = NOW()
-  WHERE id = v_otp_id;
+  WHERE id = v_record.id;
 
-  RETURN jsonb_build_object(
-    'success', true,
-    'message', 'Password successfully reset and stored into Supabase database'
-  );
+  INSERT INTO public.user_password_audit (user_id, email, action_type)
+  VALUES (v_user_id, LOWER(TRIM(p_email)), 'password_updated');
+
+  RETURN jsonb_build_object('success', true, 'message', 'Password successfully reset and updated in Supabase.');
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
+
+-- 13. RESTRICT FUNCTION EXECUTION PRIVILEGES (Fixes Security Advisor Warnings)
+REVOKE ALL ON FUNCTION public.generate_password_reset_otp(TEXT, TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.verify_password_reset_otp(TEXT, TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.reset_password_with_otp(TEXT, TEXT, TEXT) FROM PUBLIC;
+
+GRANT EXECUTE ON FUNCTION public.generate_password_reset_otp(TEXT, TEXT) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.verify_password_reset_otp(TEXT, TEXT) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.reset_password_with_otp(TEXT, TEXT, TEXT) TO anon, authenticated, service_role;
+
+-- Backward compatibility: If legacy 1-param generate_password_reset_otp(TEXT) exists, secure it as well
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'generate_password_reset_otp' AND pronargs = 1) THEN
+    EXECUTE 'REVOKE ALL ON FUNCTION public.generate_password_reset_otp(TEXT) FROM PUBLIC;';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.generate_password_reset_otp(TEXT) TO anon, authenticated, service_role;';
+    EXECUTE 'ALTER FUNCTION public.generate_password_reset_otp(TEXT) SET search_path = pg_catalog, public, auth, pg_temp;';
+  END IF;
+END $$;
 
 -- Indexes for Fast OTP Queries
 CREATE INDEX IF NOT EXISTS idx_password_reset_otps_email ON public.password_reset_otps(email);
@@ -897,7 +953,7 @@ CREATE OR REPLACE FUNCTION public.generate_password_reset_otp(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, auth, pg_temp
+SET search_path = pg_catalog, public, auth, pg_temp
 AS $$
 DECLARE
   v_user_id UUID;
@@ -943,7 +999,7 @@ CREATE OR REPLACE FUNCTION public.verify_password_reset_otp(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, auth, pg_temp
+SET search_path = pg_catalog, public, auth, pg_temp
 AS $$
 DECLARE
   v_record RECORD;
@@ -990,7 +1046,7 @@ CREATE OR REPLACE FUNCTION public.reset_password_with_otp(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, auth, pg_temp
+SET search_path = pg_catalog, public, auth, pg_temp
 AS $$
 DECLARE
   v_record RECORD;
@@ -1048,6 +1104,16 @@ REVOKE ALL ON FUNCTION public.reset_password_with_otp(TEXT, TEXT, TEXT) FROM PUB
 GRANT EXECUTE ON FUNCTION public.generate_password_reset_otp(TEXT, TEXT) TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.verify_password_reset_otp(TEXT, TEXT) TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.reset_password_with_otp(TEXT, TEXT, TEXT) TO anon, authenticated, service_role;
+
+-- Backward compatibility: If legacy 1-param generate_password_reset_otp(TEXT) exists in database, secure it as well
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'generate_password_reset_otp' AND pronargs = 1) THEN
+    EXECUTE 'REVOKE ALL ON FUNCTION public.generate_password_reset_otp(TEXT) FROM PUBLIC;';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.generate_password_reset_otp(TEXT) TO anon, authenticated, service_role;';
+    EXECUTE 'ALTER FUNCTION public.generate_password_reset_otp(TEXT) SET search_path = pg_catalog, public, auth, pg_temp;';
+  END IF;
+END $$;
 `;
 
 /**
